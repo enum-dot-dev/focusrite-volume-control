@@ -188,6 +188,7 @@ jobs:
             echo '**Homebrew:**'
             echo '```'
             echo 'brew tap enum-dot-dev/focusrite-volume-control'
+            echo 'brew trust --tap enum-dot-dev/focusrite-volume-control'
             echo 'brew install --cask focusrite-volume-control'
             echo '```'
             echo
