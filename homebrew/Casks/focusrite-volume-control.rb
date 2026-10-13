@@ -1,11 +1,13 @@
+# Template: the release workflow renders this with scripts/render_cask.py (version, sha256,
+# and a quarantine postflight for unsigned builds) and pushes it to the tap repository.
 cask "focusrite-volume-control" do
-  version "1.2"
-  sha256 :no_check # Updated automatically by release workflow
+  version "1.5.1"
+  sha256 :no_check
 
-  url "https://github.com/enum-labs/focusrite-volume-control/releases/download/v#{version}/FocusriteVolumeControl.dmg"
+  url "https://github.com/enum-dot-dev/focusrite-volume-control/releases/download/v#{version}/FocusriteVolumeControl.dmg"
   name "Focusrite Volume Control"
   desc "Control Focusrite Scarlett 4th gen volume with media keys via Focusrite Control 2"
-  homepage "https://enum-labs.github.io/focusrite-volume-control/"
+  homepage "https://enum-dot-dev.github.io/focusrite-volume-control/"
 
   depends_on macos: ">= :sonoma"
 
@@ -18,6 +20,7 @@ cask "focusrite-volume-control" do
   EOS
 
   zap trash: [
+    "~/Library/Preferences/net.nickmorozov.FocusriteVolumeControl.plist",
     "~/Library/Preferences/solutions.enum.FocusriteVolumeControl.plist",
   ]
 end

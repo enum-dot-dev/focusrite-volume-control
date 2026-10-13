@@ -10,57 +10,188 @@ jobs:
     runs-on: macos-15
     permissions:
       contents: write
+    env:
+      APP_NAME: Focusrite Volume Control
+      DMG_PATH: build/FocusriteVolumeControl.dmg
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build Release
-        run: >
-          xcodebuild -scheme "Focusrite Volume Control" -configuration Release
-          MACOSX_DEPLOYMENT_TARGET=14.5
-          CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
-          build
+      - name: Select Xcode 26
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          if [ -z "$XCODE" ]; then
+            echo "::error::No Xcode 26 on this runner. The project relies on Xcode 26 build settings (SWIFT_DEFAULT_ACTOR_ISOLATION)."
+            exit 1
+          fi
+          sudo xcode-select -s "$XCODE"
+          xcodebuild -version
+
+      # Signing and notarization run only when every secret below is set. Until then the
+      # release is built unsigned, as before, and the Homebrew cask clears quarantine.
+      - name: Check signing secrets
+        id: signing
+        env:
+          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID || secrets.APPLE_TEAM_ID }}
+          DEVELOPER_ID_CERTIFICATE_P12: ${{ secrets.DEVELOPER_ID_CERTIFICATE_P12 }}
+          DEVELOPER_ID_CERTIFICATE_PASSWORD: ${{ secrets.DEVELOPER_ID_CERTIFICATE_PASSWORD }}
+          APP_STORE_CONNECT_API_KEY_P8: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8 }}
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+        run: |
+          missing=()
+          for name in APPLE_TEAM_ID DEVELOPER_ID_CERTIFICATE_P12 DEVELOPER_ID_CERTIFICATE_PASSWORD \
+                      APP_STORE_CONNECT_API_KEY_P8 APP_STORE_CONNECT_API_KEY_ID APP_STORE_CONNECT_API_ISSUER_ID; do
+            [ -n "${!name}" ] || missing+=("$name")
+          done
+          if [ ${#missing[@]} -eq 0 ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+            echo "Signing and notarization enabled"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Unsigned release::Building an UNSIGNED, un-notarized DMG. Missing secrets: ${missing[*]}"
+          fi
+
+      - name: Import Developer ID certificate
+        if: steps.signing.outputs.enabled == 'true'
+        env:
+          DEVELOPER_ID_CERTIFICATE_P12: ${{ secrets.DEVELOPER_ID_CERTIFICATE_P12 }}
+          DEVELOPER_ID_CERTIFICATE_PASSWORD: ${{ secrets.DEVELOPER_ID_CERTIFICATE_PASSWORD }}
+          APP_STORE_CONNECT_API_KEY_P8: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8 }}
+        run: |
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          KEYCHAIN_PASSWORD=$(openssl rand -base64 32)
+          echo "::add-mask::$KEYCHAIN_PASSWORD"
+          echo "$DEVELOPER_ID_CERTIFICATE_P12" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 3600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import "$RUNNER_TEMP/certificate.p12" -P "$DEVELOPER_ID_CERTIFICATE_PASSWORD" \
+            -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" > /dev/null
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          rm "$RUNNER_TEMP/certificate.p12"
+
+          IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN" | grep -m1 "Developer ID Application" | sed -E 's/.*"(.*)"/\1/')
+          if [ -z "$IDENTITY" ]; then
+            echo "::error::DEVELOPER_ID_CERTIFICATE_P12 does not contain a Developer ID Application identity"
+            exit 1
+          fi
+          echo "KEYCHAIN=$KEYCHAIN" >> "$GITHUB_ENV"
+          echo "SIGN_IDENTITY=$IDENTITY" >> "$GITHUB_ENV"
+
+          # notarytool accepts the .p8 either raw or base64-encoded in the secret
+          KEY_PATH="$RUNNER_TEMP/AuthKey.p8"
+          if printf '%s' "$APP_STORE_CONNECT_API_KEY_P8" | grep -q "BEGIN PRIVATE KEY"; then
+            printf '%s\n' "$APP_STORE_CONNECT_API_KEY_P8" > "$KEY_PATH"
+          else
+            printf '%s' "$APP_STORE_CONNECT_API_KEY_P8" | base64 --decode > "$KEY_PATH"
+          fi
+          echo "NOTARY_KEY_PATH=$KEY_PATH" >> "$GITHUB_ENV"
+
+      - name: Build signed app (archive + Developer ID export)
+        if: steps.signing.outputs.enabled == 'true'
+        env:
+          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID || secrets.APPLE_TEAM_ID }}
+        run: |
+          xcodebuild archive \
+            -scheme "$APP_NAME" -configuration Release \
+            -archivePath build/App.xcarchive \
+            MACOSX_DEPLOYMENT_TARGET=14.5 \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="$SIGN_IDENTITY" \
+            ENABLE_HARDENED_RUNTIME=YES \
+            OTHER_CODE_SIGN_FLAGS="--timestamp --keychain $KEYCHAIN"
+
+          # The team ID isn't committed; add it to a copy of ExportOptions.plist
+          cp ExportOptions.plist build/ExportOptions.plist
+          plutil -replace teamID -string "$APPLE_TEAM_ID" build/ExportOptions.plist
+          xcodebuild -exportArchive \
+            -archivePath build/App.xcarchive \
+            -exportPath build/export \
+            -exportOptionsPlist build/ExportOptions.plist
+
+          APP_PATH="build/export/$APP_NAME.app"
+          codesign --verify --deep --strict --verbose=2 "$APP_PATH"
+          echo "APP_PATH=$APP_PATH" >> "$GITHUB_ENV"
+
+      - name: Notarize and staple app
+        if: steps.signing.outputs.enabled == 'true'
+        env:
+          NOTARY_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          NOTARY_ISSUER: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+        run: |
+          ditto -c -k --keepParent "$APP_PATH" build/app.zip
+          xcrun notarytool submit build/app.zip \
+            --key "$NOTARY_KEY_PATH" --key-id "$NOTARY_KEY_ID" --issuer "$NOTARY_ISSUER" --wait
+          xcrun stapler staple "$APP_PATH"
+          spctl --assess --type execute --verbose=2 "$APP_PATH"
+
+      - name: Build unsigned app
+        if: steps.signing.outputs.enabled != 'true'
+        run: |
+          xcodebuild -scheme "$APP_NAME" -configuration Release \
+            -derivedDataPath build/DerivedData \
+            MACOSX_DEPLOYMENT_TARGET=14.5 \
+            CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO \
+            build
+          echo "APP_PATH=build/DerivedData/Build/Products/Release/$APP_NAME.app" >> "$GITHUB_ENV"
 
       - name: Package DMG
+        env:
+          SIGNED: ${{ steps.signing.outputs.enabled }}
+          NOTARY_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          NOTARY_ISSUER: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
         run: |
-          BUILT_APP=$(find ~/Library/Developer/Xcode/DerivedData/Focusrite_Volume_Control-* \
-            -path "*/Build/Products/Release/Focusrite Volume Control.app" -maxdepth 5 | head -1)
-          mkdir -p build/dmg
-          cp -R "$BUILT_APP" build/dmg/
-          ln -s /Applications build/dmg/Applications
-          hdiutil create \
-            -volname "Focusrite Volume Control" \
-            -srcfolder build/dmg \
-            -ov -format UDZO \
-            build/FocusriteVolumeControl.dmg
+          if [ "$SIGNED" != "true" ]; then
+            # build-dmg.sh signs and notarizes only when these are set
+            unset SIGN_IDENTITY NOTARY_KEY_PATH NOTARY_KEY_ID NOTARY_ISSUER
+          fi
+          bash scripts/build-dmg.sh
 
       - name: Compute DMG SHA256
         id: sha
-        run: echo "sha256=$(shasum -a 256 build/FocusriteVolumeControl.dmg | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+        run: echo "sha256=$(shasum -a 256 "$DMG_PATH" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+
+      - name: Write release notes
+        env:
+          SIGNED: ${{ steps.signing.outputs.enabled }}
+          DMG_SHA256: ${{ steps.sha.outputs.sha256 }}
+        run: |
+          {
+            echo '**Homebrew:**'
+            echo '```'
+            echo 'brew tap enum-dot-dev/focusrite-volume-control'
+            echo 'brew install --cask focusrite-volume-control'
+            echo '```'
+            echo
+            echo "**DMG SHA256:** \`$DMG_SHA256\`"
+            if [ "$SIGNED" != "true" ]; then
+              echo
+              echo '> This build is not signed or notarized. On first launch, right-click the app and choose Open.'
+            fi
+          } > build/release-notes.md
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: build/FocusriteVolumeControl.dmg
+          files: ${{ env.DMG_PATH }}
           generate_release_notes: true
-          body: |
-            **Homebrew:**
-            ```
-            brew tap enum-labs/focusrite-volume-control
-            brew install --cask focusrite-volume-control
-            ```
-
-            **DMG SHA256:** `${{ steps.sha.outputs.sha256 }}`
+          body_path: build/release-notes.md
 
       - name: Update Homebrew tap
         env:
           GH_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
           DMG_SHA256: ${{ steps.sha.outputs.sha256 }}
+          SIGNED: ${{ steps.signing.outputs.enabled }}
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          git clone https://x-access-token:${GH_TOKEN}@github.com/enum-labs/homebrew-focusrite-volume-control.git tap
+          CASK_FLAGS=()
+          [ "$SIGNED" = "true" ] || CASK_FLAGS+=(--unsigned)
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/enum-dot-dev/homebrew-focusrite-volume-control.git" tap
+          python3 scripts/render_cask.py --version "$VERSION" --sha256 "$DMG_SHA256" ${CASK_FLAGS[@]+"${CASK_FLAGS[@]}"} \
+            homebrew/Casks/focusrite-volume-control.rb tap/Casks/focusrite-volume-control.rb
           cd tap
-          sed -i '' "s/version \".*\"/version \"${VERSION}\"/" Casks/focusrite-volume-control.rb
-          sed -i '' "s/sha256 \".*\"/sha256 \"${DMG_SHA256}\"/" Casks/focusrite-volume-control.rb
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add Casks/focusrite-volume-control.rb
@@ -68,3 +199,9 @@ jobs:
             git commit -m "bump to v${VERSION}"
             git push
           fi
+
+      - name: Remove signing keychain
+        if: always()
+        run: |
+          [ -n "${KEYCHAIN:-}" ] && security delete-keychain "$KEYCHAIN" || true
+          rm -f "$RUNNER_TEMP/AuthKey.p8"

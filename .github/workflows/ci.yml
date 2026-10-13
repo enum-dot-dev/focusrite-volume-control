@@ -20,6 +20,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Select Xcode 26
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          if [ -z "$XCODE" ]; then
+            echo "::error::No Xcode 26 on this runner. The project relies on Xcode 26 build settings (SWIFT_DEFAULT_ACTOR_ISOLATION)."
+            exit 1
+          fi
+          sudo xcode-select -s "$XCODE"
+          xcodebuild -version
+
       - name: Build
         run: >
           xcodebuild -scheme "Focusrite Volume Control" -configuration Debug
