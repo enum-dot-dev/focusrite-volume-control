@@ -40,5 +40,35 @@ jobs:
       - name: Test
         run: >
           xcodebuild test -scheme "Focusrite Volume Control" -configuration Debug
+          -resultBundlePath build/TestResults.xcresult
           MACOSX_DEPLOYMENT_TARGET=14.5
           CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
+
+      # Parallel test runners don't print why a test host crashed; surface it here
+      - name: Show test failures and crash reports
+        if: failure()
+        run: |
+          if [ -d build/TestResults.xcresult ]; then
+            xcrun xcresulttool get test-results tests --path build/TestResults.xcresult \
+              | python3 -c 'import json,sys
+          def walk(n, path=""):
+              name = n.get("name", "")
+              if n.get("nodeType") == "Failure Message":
+                  print(f"{path}: {name}")
+              for c in n.get("children", []):
+                  walk(c, name if n.get("nodeType") == "Test Case" else path)
+          for t in json.load(sys.stdin).get("testNodes", []):
+              walk(t)' || true
+          fi
+          for f in $(find ~/Library/Logs/DiagnosticReports -name 'Focusrite*' -mmin -60 2>/dev/null | head -3); do
+            echo "=== $f"
+            head -120 "$f"
+          done
+
+      - name: Upload test results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: TestResults
+          path: build/TestResults.xcresult
+          retention-days: 7
