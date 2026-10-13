@@ -60,10 +60,22 @@ jobs:
           for t in json.load(sys.stdin).get("testNodes", []):
               walk(t)' || true
           fi
-          for f in $(find ~/Library/Logs/DiagnosticReports -name 'Focusrite*' -mmin -60 2>/dev/null | head -3); do
-            echo "=== $f"
-            head -120 "$f"
-          done
+          # Report names contain spaces ("Focusrite Volume Control-<date>.ips")
+          find ~/Library/Logs/DiagnosticReports -name 'Focusrite*' -mmin -60 -print0 2>/dev/null |
+            while IFS= read -r -d '' f; do
+              echo "=== $f"
+              # .ips files are one JSON header line plus a JSON body; print the abort reason and crashing frames
+              tail -n +2 "$f" | python3 -c 'import json,sys
+          r = json.load(sys.stdin)
+          print("termination:", r.get("termination", {}).get("indicator"))
+          print("asi:", json.dumps(r.get("asi"), indent=1))
+          t = next((t for t in r.get("threads", []) if t.get("triggered")), None)
+          imgs = r.get("usedImages", [])
+          for fr in (t or {}).get("frames", [])[:25]:
+              img = imgs[fr["imageIndex"]].get("name", "?") if fr.get("imageIndex") is not None and fr["imageIndex"] < len(imgs) else "?"
+              sym = fr.get("symbol") or hex(fr.get("imageOffset", 0))
+              print("  " + img + ": " + sym)' || head -60 "$f"
+            done
 
       - name: Upload test results
         if: failure()
