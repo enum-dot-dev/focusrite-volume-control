@@ -8,7 +8,7 @@
 <plist version="1.0">
 <dict>
     <key>SUFeedURL</key>
-    <string>https://enum-dot-dev.github.io/focusrite-volume-control/appcast.xml</string>
+    <string>https://enum.dev/focusrite-volume-control/appcast.xml</string>
     <!-- PLACEHOLDER: replace with the public key printed by Sparkle's generate_keys.
          The updater stays off while this placeholder is present. -->
     <key>SUPublicEDKey</key>

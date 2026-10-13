@@ -2,7 +2,7 @@
 <rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
   <channel>
     <title>Focusrite Volume Control</title>
-    <link>https://enum-dot-dev.github.io/focusrite-volume-control/appcast.xml</link>
+    <link>https://enum.dev/focusrite-volume-control/appcast.xml</link>
     <description>Updates for Focusrite Volume Control. Maintained by the release workflow.</description>
     <language>en</language>
   </channel>
