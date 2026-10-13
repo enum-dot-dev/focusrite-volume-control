@@ -216,6 +216,11 @@ class ShortcutManager: ObservableObject {
         loadShortcuts()
     }
 
+    // Main-actor default isolation makes the implicit deinit isolated. Below macOS 26 that runs
+    // through Swift's back-deployment shim, which aborts ("pointer being freed was not allocated")
+    // when the object is freed outside a task. Nothing here needs the main actor.
+    nonisolated deinit {}
+
     func loadShortcuts() {
         if let data = preferences?.data(forKey: userDefaultsKey),
            let decoded = try? JSONDecoder().decode([String: KeyboardShortcut].self, from: data) {

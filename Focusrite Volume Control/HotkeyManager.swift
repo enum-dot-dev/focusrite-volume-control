@@ -123,7 +123,10 @@ class HotkeyManager {
         }
     }
 
-    deinit {
-        removeMonitors()
+    // Nonisolated for the same reason as ShortcutManager's deinit (isolated deinits abort below
+    // macOS 26 when freed outside a task); removing NSEvent monitors doesn't need the main actor
+    nonisolated deinit {
+        if let globalMonitor { NSEvent.removeMonitor(globalMonitor) }
+        if let localMonitor { NSEvent.removeMonitor(localMonitor) }
     }
 }
