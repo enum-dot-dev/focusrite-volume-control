@@ -37,7 +37,7 @@ echo "==> Building Release..."
 xcodebuild -project "$PROJECT_DIR/Focusrite Volume Control.xcodeproj" \
     -scheme "$SCHEME" \
     -configuration Release \
-    MACOSX_DEPLOYMENT_TARGET=15.0 \
+    MACOSX_DEPLOYMENT_TARGET=14.5 \
     $SIGN_ARGS \
     build \
     -quiet

@@ -27,7 +27,7 @@ Download the latest DMG from [Releases](https://github.com/enum-labs/focusrite-v
 
 ## Requirements
 
-- macOS 15.0 (Sequoia) or later
+- macOS 14.5 (Sonoma) or later
 - [Focusrite Control 2](https://focusrite.com/downloads) installed
 - Accessibility permission (prompted on first launch)
 

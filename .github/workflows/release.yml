@@ -16,7 +16,7 @@ jobs:
       - name: Build Release
         run: >
           xcodebuild -scheme "Focusrite Volume Control" -configuration Release
-          MACOSX_DEPLOYMENT_TARGET=15.0
+          MACOSX_DEPLOYMENT_TARGET=14.5
           CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
           build
 

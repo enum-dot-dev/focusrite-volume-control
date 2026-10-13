@@ -7,7 +7,7 @@ cask "focusrite-volume-control" do
   desc "Control Focusrite Scarlett 4th gen volume with media keys via Focusrite Control 2"
   homepage "https://enum-labs.github.io/focusrite-volume-control/"
 
-  depends_on macos: ">= :sequoia"
+  depends_on macos: ">= :sonoma"
 
   app "Focusrite Volume Control.app"
 
