@@ -12,8 +12,9 @@ jobs:
       contents: write   # release upload, appcast commit
       actions: write    # trigger the Pages deploy after the appcast changes
     env:
-      APP_NAME: Focusrite Volume Control
-      DMG_PATH: build/FocusriteVolumeControl.dmg
+      SCHEME: Focusrite Volume Control   # Xcode scheme/target name (unchanged)
+      APP_NAME: Volume Control           # built product: "Volume Control.app"
+      DMG_PATH: build/VolumeControl.dmg
     steps:
       - uses: actions/checkout@v4
 
@@ -118,7 +119,7 @@ jobs:
           APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID || secrets.APPLE_TEAM_ID }}
         run: |
           xcodebuild archive \
-            -scheme "$APP_NAME" -configuration Release \
+            -scheme "$SCHEME" -configuration Release \
             -archivePath build/App.xcarchive \
             MACOSX_DEPLOYMENT_TARGET=14.5 \
             MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$VERSION" \
@@ -155,7 +156,7 @@ jobs:
       - name: Build unsigned app
         if: steps.signing.outputs.enabled != 'true'
         run: |
-          xcodebuild -scheme "$APP_NAME" -configuration Release \
+          xcodebuild -scheme "$SCHEME" -configuration Release \
             -derivedDataPath build/DerivedData \
             MACOSX_DEPLOYMENT_TARGET=14.5 \
             MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$VERSION" \
@@ -216,7 +217,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/sparkle" && tar -xJf "$RUNNER_TEMP/sparkle.tar.xz" -C "$RUNNER_TEMP/sparkle"
           SIGNATURE=$(printf '%s' "$SPARKLE_ED_PRIVATE_KEY" | "$RUNNER_TEMP/sparkle/bin/sign_update" --ed-key-file - -p "$DMG_PATH")
           LENGTH=$(stat -f%z "$DMG_PATH")
-          RELEASE_URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/FocusriteVolumeControl.dmg"
+          RELEASE_URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/VolumeControl.dmg"
 
           # The tag checkout is detached; commit the appcast on top of main
           git fetch origin main

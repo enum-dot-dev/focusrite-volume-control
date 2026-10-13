@@ -17,7 +17,7 @@ QUARANTINE_POSTFLIGHT = '''
   # Unsigned build: clear quarantine so Gatekeeper doesn't block the app
   postflight do
     system_command "/usr/bin/xattr",
-                   args: ["-cr", "#{appdir}/Focusrite Volume Control.app"]
+                   args: ["-cr", "#{appdir}/Volume Control.app"]
   end
 '''
 

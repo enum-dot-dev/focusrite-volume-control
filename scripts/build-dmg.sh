@@ -1,16 +1,16 @@
 #!/bin/bash
 #
-# build-dmg.sh - Package Focusrite Volume Control into a DMG, optionally signed and notarized
+# build-dmg.sh - Package Volume Control into a DMG, optionally signed and notarized
 #
 # Usage:
 #   bash scripts/build-dmg.sh          # build with project signing settings, then package
 #   ADHOC=1 bash scripts/build-dmg.sh  # force ad-hoc signing
-#   APP_PATH=build/export/"Focusrite Volume Control.app" bash scripts/build-dmg.sh
+#   APP_PATH=build/export/"Volume Control.app" bash scripts/build-dmg.sh
 #                                      # package an already built (and signed) app
 #
 # Optional environment variables:
 #   APP_PATH        - prebuilt .app to package instead of building one
-#   DMG_PATH        - output path (default: build/Focusrite Volume Control.dmg)
+#   DMG_PATH        - output path (default: build/VolumeControl.dmg)
 #   SIGN_IDENTITY   - codesign identity for the DMG, e.g. "Developer ID Application: Name (TEAMID)"
 #   KEYCHAIN        - keychain holding SIGN_IDENTITY (default: search list)
 #
@@ -29,9 +29,9 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 BUILD_DIR="$PROJECT_DIR/build"
 SCHEME="Focusrite Volume Control"
-APP_NAME="Focusrite Volume Control"
-DMG_VOLUME_NAME="Focusrite Volume Control"
-DMG_FINAL="${DMG_PATH:-$BUILD_DIR/$APP_NAME.dmg}"
+APP_NAME="Volume Control"
+DMG_VOLUME_NAME="Volume Control"
+DMG_FINAL="${DMG_PATH:-$BUILD_DIR/VolumeControl.dmg}"
 
 mkdir -p "$BUILD_DIR"
 

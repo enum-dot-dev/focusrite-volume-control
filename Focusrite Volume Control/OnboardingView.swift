@@ -39,7 +39,7 @@ struct OnboardingView: View {
                     .font(.system(size: 48))
                     .foregroundStyle(.blue)
 
-                Text("Focusrite Volume Control Setup")
+                Text("Volume Control Setup")
                     .font(.title2)
                     .fontWeight(.semibold)
 

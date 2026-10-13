@@ -213,7 +213,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         statusMenu = NSMenu()
 
         // About
-        let aboutItem = NSMenuItem(title: "About Focusrite Volume Control", action: #selector(showAbout), keyEquivalent: "")
+        let aboutItem = NSMenuItem(title: "About Volume Control", action: #selector(showAbout), keyEquivalent: "")
         aboutItem.target = self
         statusMenu.addItem(aboutItem)
 
@@ -283,7 +283,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func showAbout() {
         let alert = NSAlert()
-        alert.messageText = "Focusrite Volume Control"
+        alert.messageText = "Volume Control"
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
         let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "?"
         alert.informativeText = "Control your Focusrite Scarlett Solo volume with system media keys.\n\nVersion \(version) (\(build))\n\n\u{00A9} 2026"

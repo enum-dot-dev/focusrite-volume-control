@@ -60,8 +60,8 @@ jobs:
           for t in json.load(sys.stdin).get("testNodes", []):
               walk(t)' || true
           fi
-          # Report names contain spaces ("Focusrite Volume Control-<date>.ips")
-          find ~/Library/Logs/DiagnosticReports -name 'Focusrite*' -mmin -60 -print0 2>/dev/null |
+          # Report names contain spaces ("Volume Control-<date>.ips")
+          find ~/Library/Logs/DiagnosticReports -name 'Volume Control*' -mmin -60 -print0 2>/dev/null |
             while IFS= read -r -d '' f; do
               echo "=== $f"
               # .ips files are one JSON header line plus a JSON body; print the abort reason and crashing frames

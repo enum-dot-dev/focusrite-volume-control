@@ -4,14 +4,14 @@ cask "focusrite-volume-control" do
   version "1.5.1"
   sha256 :no_check
 
-  url "https://github.com/enum-dot-dev/focusrite-volume-control/releases/download/v#{version}/FocusriteVolumeControl.dmg"
-  name "Focusrite Volume Control"
+  url "https://github.com/enum-dot-dev/focusrite-volume-control/releases/download/v#{version}/VolumeControl.dmg"
+  name "Volume Control"
   desc "Control Focusrite Scarlett 4th gen volume with media keys via Focusrite Control 2"
   homepage "https://enum.dev/focusrite-volume-control/"
 
   depends_on macos: ">= :sonoma"
 
-  app "Focusrite Volume Control.app"
+  app "Volume Control.app"
 
   caveats <<~EOS
     If media keys stop working after an update, reset the accessibility permission:

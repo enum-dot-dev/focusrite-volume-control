@@ -21,7 +21,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		01A89D572F280BA90084DBD8 /* Focusrite Volume Control.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Focusrite Volume Control.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		01A89D572F280BA90084DBD8 /* Volume Control.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Volume Control.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		01A89D652F280BA90084DBD8 /* Focusrite Volume ControlTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Focusrite Volume ControlTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -69,7 +69,7 @@
 		01A89D582F280BA90084DBD8 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				01A89D572F280BA90084DBD8 /* Focusrite Volume Control.app */,
+				01A89D572F280BA90084DBD8 /* Volume Control.app */,
 				01A89D652F280BA90084DBD8 /* Focusrite Volume ControlTests.xctest */,
 			);
 			name = Products;
@@ -98,7 +98,7 @@
 				01A89DA22F2A00000084DBD8 /* Sparkle */,
 			);
 			productName = "Focusrite Volume Control";
-			productReference = 01A89D572F280BA90084DBD8 /* Focusrite Volume Control.app */;
+			productReference = 01A89D572F280BA90084DBD8 /* Volume Control.app */;
 			productType = "com.apple.product-type.application";
 		};
 		01A89D6A2F280BA90084DBD8 /* Focusrite Volume ControlTests */ = {
@@ -343,6 +343,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Focusrite-Volume-Control-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Volume Control";
 				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -351,7 +352,8 @@
 				);
 				MARKETING_VERSION = 1.4.5;
 				PRODUCT_BUNDLE_IDENTIFIER = solutions.enum.FocusriteVolumeControl;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_MODULE_NAME = Focusrite_Volume_Control;
+				PRODUCT_NAME = "Volume Control";
 				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -376,6 +378,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Focusrite-Volume-Control-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Volume Control";
 				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -384,7 +387,8 @@
 				);
 				MARKETING_VERSION = 1.4.5;
 				PRODUCT_BUNDLE_IDENTIFIER = solutions.enum.FocusriteVolumeControl;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_MODULE_NAME = Focusrite_Volume_Control;
+				PRODUCT_NAME = "Volume Control";
 				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -412,7 +416,7 @@
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Focusrite Volume Control.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Focusrite Volume Control";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Volume Control.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Volume Control";
 			};
 			name = Debug;
 		};
@@ -433,7 +437,7 @@
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Focusrite Volume Control.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Focusrite Volume Control";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Volume Control.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Volume Control";
 			};
 			name = Release;
 		};
