@@ -18,6 +18,12 @@ class AppleScriptBackend: VolumeBackend {
     private let fc2Process = "Focusrite Control 2"
     private let logger = Logger(subsystem: "solutions.enum.FocusriteVolumeControl", category: "AppleScriptBackend")
 
+    /// The Direct Monitor checkbox is titled "Direct Monitor" in some FC2 versions and
+    /// "Direct Monitor mode" in others, so match on the prefix (issue #1)
+    private var directMonitorCheckbox: String {
+        "first checkbox of window \"\(fc2Process)\" whose name starts with \"Direct Monitor\""
+    }
+
     // MARK: - State
 
     private var _state = VolumeState()
@@ -459,7 +465,7 @@ class AppleScriptBackend: VolumeBackend {
         let script = """
         tell application "System Events"
             tell process "\(fc2Process)"
-                return value of checkbox "Direct Monitor" of window "\(fc2Process)"
+                return value of (\(directMonitorCheckbox))
             end tell
         end tell
         """
@@ -478,7 +484,7 @@ class AppleScriptBackend: VolumeBackend {
         let script = """
         tell application "System Events"
             tell process "\(fc2Process)"
-                set cb to checkbox "Direct Monitor" of window "\(fc2Process)"
+                set cb to \(directMonitorCheckbox)
                 if (value of cb) is not \(targetValue) then
                     click cb
                 end if
