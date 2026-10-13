@@ -17,19 +17,27 @@ A macOS menu bar app that lets you control your Focusrite Scarlett Solo volume w
 ### Homebrew
 
 ```bash
-brew tap enum-labs/focusrite-volume-control
+brew tap enum-dot-dev/focusrite-volume-control
 brew install --cask focusrite-volume-control
 ```
 
 ### Manual
 
-Download the latest DMG from [Releases](https://github.com/enum-labs/focusrite-volume-control/releases/latest) and drag to Applications.
+Download the latest DMG from [Releases](https://github.com/enum-dot-dev/focusrite-volume-control/releases/latest) and drag to Applications.
+
+Releases are moving to Developer ID signing and notarization. Until a release says it is signed, macOS will block the first launch: right-click the app and choose **Open**. Signed releases update themselves through **Check for Updates...** in the menu bar menu.
 
 ## Requirements
 
 - macOS 14.5 (Sonoma) or later
-- [Focusrite Control 2](https://focusrite.com/downloads) installed
-- Accessibility permission (prompted on first launch)
+- A Focusrite interface managed by [Focusrite Control 2](https://focusrite.com/downloads) (Scarlett 4th Gen), with FC2 installed
+- Accessibility permission (prompted on first launch). No Automation permission is needed.
+
+## Compatibility
+
+This has only been tested with a **Scarlett Solo 4th Gen**. Older Scarlett models (3rd Gen and earlier) aren't supported by Focusrite Control 2, so they can't work with this app either.
+
+If you use a larger interface (2i2, 4i4, 16i16 and up) and something doesn't work, its FC2 window is probably laid out differently. [Open an issue](https://github.com/enum-dot-dev/focusrite-volume-control/issues) with your model and FC2 version and I'll try to patch it. Requests for things like preset key bindings are welcome there too.
 
 ## Features
 
@@ -54,10 +62,14 @@ The app drives Focusrite Control 2's window in-process through the macOS Accessi
 
 ## Build from source
 
+Requires Xcode 26. Swift Package Manager fetches [Sparkle](https://sparkle-project.org) on the first build.
+
 ```bash
 xcodebuild -scheme "Focusrite Volume Control" -configuration Release \
   CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=NO build
 ```
+
+`bash scripts/build-dmg.sh` builds and packages a DMG; see the script header for signing and notarization options.
 
 ## Credits
 

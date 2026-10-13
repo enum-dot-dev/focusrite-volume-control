@@ -360,7 +360,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func openIssues() {
-        if let url = URL(string: "https://github.com/enum-labs/focusrite-volume-control/issues") {
+        if let url = URL(string: "https://github.com/enum-dot-dev/focusrite-volume-control/issues") {
             NSWorkspace.shared.open(url)
         }
     }
