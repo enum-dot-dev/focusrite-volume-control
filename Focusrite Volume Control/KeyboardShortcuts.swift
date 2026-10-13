@@ -61,6 +61,23 @@ struct KeyboardShortcut: Codable, Equatable {
         self.mediaKeyType = mediaKeyType
     }
 
+    /// Navigation keys belong to the focused app unless an explicit modifier
+    /// distinguishes the global shortcut from ordinary navigation/selection.
+    var isAllowedGlobalShortcut: Bool {
+        if isMediaKey { return mediaKeyType != nil }
+        guard let keyCode else { return false }
+        let navigationKeys: Set<UInt16> = [
+            UInt16(kVK_LeftArrow), UInt16(kVK_RightArrow),
+            UInt16(kVK_UpArrow), UInt16(kVK_DownArrow),
+            UInt16(kVK_Home), UInt16(kVK_End),
+            UInt16(kVK_PageUp), UInt16(kVK_PageDown),
+            UInt16(kVK_Tab), UInt16(kVK_Return),
+            UInt16(kVK_Delete), UInt16(kVK_ForwardDelete), UInt16(kVK_Escape)
+        ]
+        return !navigationKeys.contains(keyCode)
+            || !modifiers.intersection([.command, .control, .option]).isEmpty
+    }
+
     // Custom Codable for NSEvent.ModifierFlags
     enum CodingKeys: String, CodingKey {
         case keyCode, modifiersRaw, isMediaKey, mediaKeyType
@@ -189,23 +206,33 @@ class ShortcutManager: ObservableObject {
     static let shared = ShortcutManager()
 
     @Published var shortcuts: [ShortcutAction: KeyboardShortcut?] = [:]
+    @Published var recordingAction: ShortcutAction?
 
     private let userDefaultsKey = "keyboardShortcuts"
+    private let preferences: UserDefaults?
 
-    init() {
+    init(preferences: UserDefaults? = .standard) {
+        self.preferences = preferences
         loadShortcuts()
     }
 
     func loadShortcuts() {
-        if let data = UserDefaults.standard.data(forKey: userDefaultsKey),
+        if let data = preferences?.data(forKey: userDefaultsKey),
            let decoded = try? JSONDecoder().decode([String: KeyboardShortcut].self, from: data) {
+            var repaired = false
             for action in ShortcutAction.allCases {
                 if let shortcut = decoded[action.rawValue] {
-                    shortcuts[action] = shortcut
+                    if shortcut.isAllowedGlobalShortcut {
+                        shortcuts[action] = shortcut
+                    } else {
+                        shortcuts[action] = action.defaultShortcut
+                        repaired = true
+                    }
                 } else {
                     shortcuts[action] = action.defaultShortcut
                 }
             }
+            if repaired { saveShortcuts() }
         } else {
             // Set defaults
             for action in ShortcutAction.allCases {
@@ -222,11 +249,12 @@ class ShortcutManager: ObservableObject {
             }
         }
         if let data = try? JSONEncoder().encode(toEncode) {
-            UserDefaults.standard.set(data, forKey: userDefaultsKey)
+            preferences?.set(data, forKey: userDefaultsKey)
         }
     }
 
     func setShortcut(_ shortcut: KeyboardShortcut?, for action: ShortcutAction) {
+        guard shortcut?.isAllowedGlobalShortcut != false else { return }
         shortcuts[action] = shortcut
         saveShortcuts()
     }

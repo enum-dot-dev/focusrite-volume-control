@@ -26,27 +26,31 @@ class HotkeyManager {
 
         // Observe shortcut changes to update handlers
         shortcutManager.$shortcuts
-            .sink { [weak self] _ in
-                self?.updateMonitors()
+            .combineLatest(shortcutManager.$recordingAction)
+            .sink { [weak self] shortcuts, recordingAction in
+                self?.updateMonitors(shortcuts: shortcuts, recordingAction: recordingAction)
             }
             .store(in: &cancellables)
     }
 
     func start() {
-        updateMonitors()
+        updateMonitors(shortcuts: shortcutManager.shortcuts,
+                       recordingAction: shortcutManager.recordingAction)
     }
 
     func stop() {
         removeMonitors()
     }
 
-    private func updateMonitors() {
+    private func updateMonitors(shortcuts: [ShortcutAction: KeyboardShortcut?],
+                                recordingAction: ShortcutAction?) {
         removeMonitors()
+        guard recordingAction == nil else { return }
 
         // Check if any custom (non-media-key) shortcuts are configured
         let hasCustomShortcuts = ShortcutAction.allCases.contains { action in
-            if let shortcut = shortcutManager.shortcut(for: action) {
-                return !shortcut.isMediaKey && shortcut.keyCode != nil
+            if let shortcut = shortcuts[action] ?? nil {
+                return !shortcut.isMediaKey && shortcut.isAllowedGlobalShortcut
             }
             return false
         }
@@ -80,6 +84,7 @@ class HotkeyManager {
 
     @discardableResult
     private func handleKeyEvent(_ event: NSEvent) -> Bool {
+        guard shortcutManager.recordingAction == nil else { return false }
         let keyCode = event.keyCode
         let modifiers = event.modifierFlags.intersection([.control, .option, .shift, .command])
 
@@ -87,6 +92,7 @@ class HotkeyManager {
         for action in ShortcutAction.allCases {
             guard let shortcut = shortcutManager.shortcut(for: action),
                   !shortcut.isMediaKey,
+                  shortcut.isAllowedGlobalShortcut,
                   let shortcutKeyCode = shortcut.keyCode,
                   shortcutKeyCode == keyCode,
                   shortcut.modifiers == modifiers else {
@@ -95,6 +101,7 @@ class HotkeyManager {
 
             // Found a match - execute the action
             DispatchQueue.main.async { [weak self] in
+                guard self?.shortcutManager.recordingAction == nil else { return }
                 self?.executeAction(action)
             }
             return true
