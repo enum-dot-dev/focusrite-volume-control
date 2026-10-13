@@ -76,4 +76,4 @@ xcodebuild -scheme "Focusrite Volume Control" -configuration Release \
 
 ## Credits
 
-The native Accessibility control path, rapid key-press handling and the shortcut recorder fix are ported from [William Chan's version](https://github.com/wc2184/focusrite-volume-control) (MIT).
+The native Accessibility control path, rapid key-press handling and the shortcut recorder fix are ported from [William Chan's version](https://github.com/wc2184/focusrite-volume-control) (MIT). His write-up of the shortcut bug is in [docs/shortcut-bug-postmortem.md](docs/shortcut-bug-postmortem.md).
