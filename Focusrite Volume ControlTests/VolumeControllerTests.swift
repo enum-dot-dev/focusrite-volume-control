@@ -702,8 +702,8 @@ final class VolumeControllerTests: XCTestCase {
 
     // MARK: - Backend Type Tests
 
-    func testBackendType_DefaultIsAppleScript() {
-        XCTAssertEqual(controller.backendType, .appleScript)
+    func testBackendType_DefaultIsAccessibility() {
+        XCTAssertEqual(controller.backendType, .accessibility)
     }
 
     func testRestart_CallsDisconnectThenConnect() async throws {
@@ -768,5 +768,23 @@ final class VolumeControllerTests: XCTestCase {
 
         let directMonitorCalls = calls(named: "setDirectMonitorEnabled")
         XCTAssertTrue(directMonitorCalls.isEmpty, "should not call setDirectMonitorEnabled when already on")
+    }
+
+    // MARK: - Rapid Write Coalescing Tests
+
+    func testSetPlaybackVolume_RapidCalls_CoalesceToNewestValue() async throws {
+        mockBackend.setPlaybackVolumeState(-40.0)
+        try await waitForStateUpdate()
+
+        mockBackend.clearCalls()
+        controller.setPlaybackVolume(-30.0)
+        controller.setPlaybackVolume(-25.0)
+        controller.setPlaybackVolume(-20.0)
+        try await waitForStateUpdate()
+
+        // Presses made before the writer starts collapse into a single write of the newest value
+        let written = calls(named: "setPlaybackVolume").compactMap { $0.parameters["db"] }
+        XCTAssertEqual(written, ["-20.0"])
+        XCTAssertEqual(controller.playbackVolume, -20.0)
     }
 }

@@ -42,7 +42,7 @@ Download the latest DMG from [Releases](https://github.com/enum-labs/focusrite-v
 
 ## How it works
 
-The app drives Focusrite Control 2 via UI automation (AppleScript + Accessibility API). It intercepts system media keys through a `CGEventTap` and routes them to FC2's sliders instead of macOS's built-in volume control.
+The app drives Focusrite Control 2's window in-process through the macOS Accessibility API, caching the controls it looks up so rapid key presses stay fast and in order. It intercepts system media keys through a `CGEventTap` and routes them to FC2's sliders instead of macOS's built-in volume control. Only the Accessibility permission is needed; there is no Automation (Apple Events) prompt.
 
 ## Known issues
 

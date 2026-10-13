@@ -30,7 +30,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var preferencesWindow: NSWindow?
     private var onboardingWindow: NSWindow?
 
-    // Volume controller with AppleScript backend
+    // Volume controller with Accessibility backend
     var volumeController: VolumeController!
 
     private var cancellables = Set<AnyCancellable>()
@@ -50,7 +50,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - App Lifecycle
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Initialize volume controller with AppleScript backend
+        // Initialize volume controller with Accessibility backend
         volumeController = VolumeController()
 
         // Monitor default audio output device for Focusrite detection
