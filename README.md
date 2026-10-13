@@ -17,12 +17,10 @@ A macOS menu bar app that lets you control your Focusrite Scarlett Solo volume w
 ### Homebrew
 
 ```bash
-brew tap enum-dot-dev/focusrite-volume-control
-brew trust --tap enum-dot-dev/focusrite-volume-control
-brew install --cask focusrite-volume-control
+brew install --cask enum-dot-dev/focusrite-volume-control/focusrite-volume-control
 ```
 
-Recent Homebrew versions only load casks from third-party taps you've trusted, so `brew trust` is needed once per Mac. If Homebrew says `trust` is an unknown command, your version predates it; skip that line.
+Homebrew 6.0 and later only load casks from third-party taps you've trusted. Installing by the full name, as above, adds the tap and trusts just this cask. If you'd rather tap first and install by the short name, run `brew trust --cask enum-dot-dev/focusrite-volume-control/focusrite-volume-control` before `brew install --cask focusrite-volume-control`.
 
 ### Manual
 
