@@ -13,7 +13,20 @@ import AppKit
 struct ShortcutRecorderView: View {
     let action: ShortcutAction
     @ObservedObject var shortcutManager: ShortcutManager
-    @State private var isRecording = false
+    private var isRecording: Bool { shortcutManager.recordingAction == action }
+
+    private var recordingBinding: Binding<Bool> {
+        Binding(
+            get: { isRecording },
+            set: { recording in
+                if recording {
+                    shortcutManager.recordingAction = action
+                } else if isRecording {
+                    shortcutManager.recordingAction = nil
+                }
+            }
+        )
+    }
 
     var body: some View {
         HStack(spacing: 8) {
@@ -22,7 +35,7 @@ struct ShortcutRecorderView: View {
 
             ShortcutRecorderButton(
                 shortcut: shortcutManager.shortcuts[action] ?? nil,
-                isRecording: $isRecording,
+                isRecording: recordingBinding,
                 onShortcutRecorded: { shortcut in
                     shortcutManager.setShortcut(shortcut, for: action)
                 }
@@ -38,6 +51,9 @@ struct ShortcutRecorderView: View {
             .help("Reset to default")
             .opacity(isDefault ? 0.3 : 1.0)
             .disabled(isDefault)
+        }
+        .onDisappear {
+            if isRecording { shortcutManager.recordingAction = nil }
         }
     }
 
@@ -107,6 +123,12 @@ struct ShortcutRecorderEventHandler: NSViewRepresentable {
 
     func makeNSView(context: Context) -> ShortcutRecorderNSView {
         let view = ShortcutRecorderNSView()
+        configure(view)
+        return view
+    }
+
+    private func configure(_ view: ShortcutRecorderNSView) {
+        view.isRecording = isRecording
         view.onShortcutRecorded = { shortcut in
             onShortcutRecorded(shortcut)
             isRecording = false
@@ -114,14 +136,17 @@ struct ShortcutRecorderEventHandler: NSViewRepresentable {
         view.onCancel = {
             isRecording = false
         }
-        return view
     }
 
     func updateNSView(_ nsView: ShortcutRecorderNSView, context: Context) {
+        configure(nsView)
         if isRecording {
-            DispatchQueue.main.async {
+            DispatchQueue.main.async { [weak nsView] in
+                guard let nsView, nsView.isRecording else { return }
                 nsView.window?.makeFirstResponder(nsView)
             }
+        } else if nsView.window?.firstResponder === nsView {
+            nsView.window?.makeFirstResponder(nil)
         }
     }
 }
@@ -129,14 +154,31 @@ struct ShortcutRecorderEventHandler: NSViewRepresentable {
 // MARK: - NSView for Key Event Handling
 
 class ShortcutRecorderNSView: NSView {
+    var isRecording = false
     var onShortcutRecorded: ((KeyboardShortcut) -> Void)?
     var onCancel: (() -> Void)?
 
-    override var acceptsFirstResponder: Bool { true }
+    override var acceptsFirstResponder: Bool { isRecording }
+
+    override func resignFirstResponder() -> Bool {
+        let resigned = super.resignFirstResponder()
+        if resigned && isRecording {
+            isRecording = false
+            onCancel?()
+        }
+        return resigned
+    }
+
+    private func finishRecording() {
+        isRecording = false
+        if window?.firstResponder === self { window?.makeFirstResponder(nil) }
+    }
 
     override func keyDown(with event: NSEvent) {
+        guard isRecording, !event.isARepeat else { return }
         // Escape cancels recording
         if event.keyCode == 53 { // Escape key
+            finishRecording()
             onCancel?()
             return
         }
@@ -155,6 +197,11 @@ class ShortcutRecorderNSView: NSView {
             mediaKeyType: nil
         )
 
+        guard shortcut.isAllowedGlobalShortcut else {
+            NSSound.beep()
+            return
+        }
+        finishRecording()
         onShortcutRecorded?(shortcut)
     }
 
@@ -173,7 +220,7 @@ struct ShortcutsSectionView: View {
             Text("Keyboard Shortcuts")
                 .font(.headline)
 
-            Text("By default, system volume keys are used. Click to set a custom shortcut.")
+            Text("System volume keys are the default. Click to record a shortcut; Esc cancels. Navigation keys require Command, Control, or Option.")
                 .font(.caption)
                 .foregroundColor(.secondary)
 

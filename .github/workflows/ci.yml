@@ -8,7 +8,7 @@ on:
 
 env:
   # Override deployment target for CI runner compatibility
-  MACOSX_DEPLOYMENT_TARGET: '15.0'
+  MACOSX_DEPLOYMENT_TARGET: '14.5'
   # Skip code signing on CI
   CODE_SIGN_IDENTITY: ''
   CODE_SIGNING_REQUIRED: 'NO'
@@ -20,15 +20,67 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Select Xcode 26
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          if [ -z "$XCODE" ]; then
+            echo "::error::No Xcode 26 on this runner. The project relies on Xcode 26 build settings (SWIFT_DEFAULT_ACTOR_ISOLATION)."
+            exit 1
+          fi
+          sudo xcode-select -s "$XCODE"
+          xcodebuild -version
+
       - name: Build
         run: >
           xcodebuild -scheme "Focusrite Volume Control" -configuration Debug
-          MACOSX_DEPLOYMENT_TARGET=15.0
+          MACOSX_DEPLOYMENT_TARGET=14.5
           CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
           build
 
       - name: Test
         run: >
           xcodebuild test -scheme "Focusrite Volume Control" -configuration Debug
-          MACOSX_DEPLOYMENT_TARGET=15.0
+          -resultBundlePath build/TestResults.xcresult
+          MACOSX_DEPLOYMENT_TARGET=14.5
           CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
+
+      # Parallel test runners don't print why a test host crashed; surface it here
+      - name: Show test failures and crash reports
+        if: failure()
+        run: |
+          if [ -d build/TestResults.xcresult ]; then
+            xcrun xcresulttool get test-results tests --path build/TestResults.xcresult \
+              | python3 -c 'import json,sys
+          def walk(n, path=""):
+              name = n.get("name", "")
+              if n.get("nodeType") == "Failure Message":
+                  print(f"{path}: {name}")
+              for c in n.get("children", []):
+                  walk(c, name if n.get("nodeType") == "Test Case" else path)
+          for t in json.load(sys.stdin).get("testNodes", []):
+              walk(t)' || true
+          fi
+          # Report names contain spaces ("Volume Control-<date>.ips")
+          find ~/Library/Logs/DiagnosticReports -name 'Volume Control*' -mmin -60 -print0 2>/dev/null |
+            while IFS= read -r -d '' f; do
+              echo "=== $f"
+              # .ips files are one JSON header line plus a JSON body; print the abort reason and crashing frames
+              tail -n +2 "$f" | python3 -c 'import json,sys
+          r = json.load(sys.stdin)
+          print("termination:", r.get("termination", {}).get("indicator"))
+          print("asi:", json.dumps(r.get("asi"), indent=1))
+          t = next((t for t in r.get("threads", []) if t.get("triggered")), None)
+          imgs = r.get("usedImages", [])
+          for fr in (t or {}).get("frames", [])[:25]:
+              img = imgs[fr["imageIndex"]].get("name", "?") if fr.get("imageIndex") is not None and fr["imageIndex"] < len(imgs) else "?"
+              sym = fr.get("symbol") or hex(fr.get("imageOffset", 0))
+              print("  " + img + ": " + sym)' || head -60 "$f"
+            done
+
+      - name: Upload test results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: TestResults
+          path: build/TestResults.xcresult
+          retention-days: 7

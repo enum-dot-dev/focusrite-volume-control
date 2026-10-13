@@ -2,8 +2,8 @@
 //  OnboardingView.swift
 //  Focusrite Volume Control
 //
-//  Permission onboarding wizard — shown on launch until both
-//  Accessibility and Automation permissions are granted.
+//  Permission onboarding wizard — shown on launch until the
+//  Accessibility permission is granted.
 //
 
 import SwiftUI
@@ -16,34 +16,8 @@ func isAccessibilityGranted() -> Bool {
     AXIsProcessTrusted()
 }
 
-func isAutomationGranted() -> Bool {
-    // Test automation against Focusrite Control 2 — the actual target app.
-    // Falls back to System Events if FC2 isn't installed/running.
-    let scripts = [
-        "tell application \"Focusrite Control 2\" to name",
-        "tell application \"System Events\" to return name of first process"
-    ]
-    for script in scripts {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
-        process.arguments = ["-e", script]
-        process.standardOutput = FileHandle.nullDevice
-        process.standardError = FileHandle.nullDevice
-        do {
-            try process.run()
-            process.waitUntilExit()
-            if process.terminationStatus == 0 { return true }
-        } catch {
-            continue
-        }
-    }
-    return false
-}
-
 func areAllPermissionsGranted() -> Bool {
-    // Only gate on Accessibility — it can be reliably checked via AXIsProcessTrusted().
-    // Automation permission is prompted automatically by macOS on first osascript use,
-    // so there's no need to pre-check it (and doing so is unreliable).
+    // FC2 is controlled in-process through the Accessibility API, so this is the only permission
     isAccessibilityGranted()
 }
 
@@ -65,7 +39,7 @@ struct OnboardingView: View {
                     .font(.system(size: 48))
                     .foregroundStyle(.blue)
 
-                Text("Focusrite Volume Control Setup")
+                Text("Volume Control Setup")
                     .font(.title2)
                     .fontWeight(.semibold)
 
@@ -95,17 +69,6 @@ struct OnboardingView: View {
             }
             .padding(.vertical, 20)
             .padding(.horizontal, 24)
-
-            // Note about Automation
-            HStack(spacing: 8) {
-                Image(systemName: "info.circle")
-                    .foregroundStyle(.secondary)
-                Text("macOS will also ask to allow Automation for Focusrite Control 2 on first use — click OK when prompted.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            .padding(.horizontal, 24)
-            .padding(.bottom, 16)
 
             Divider()
                 .padding(.horizontal, 24)

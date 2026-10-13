@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Generate app icon for Focusrite Volume Control.
+Generate app icon for Volume Control.
 Creates a 1024x1024 master icon and all required sizes for AppIcon.appiconset.
 Uses only Python standard library + macOS sips for resizing.
 """
