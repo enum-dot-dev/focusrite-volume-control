@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Merged into the generated Info.plist (GENERATE_INFOPLIST_FILE = YES) for keys that
+  have no INFOPLIST_KEY_ build setting. Kept outside the synced source folder so it
+  isn't copied into the bundle as a resource.
+-->
+<plist version="1.0">
+<dict>
+    <key>SUFeedURL</key>
+    <string>https://enum-dot-dev.github.io/focusrite-volume-control/appcast.xml</string>
+    <!-- PLACEHOLDER: replace with the public key printed by Sparkle's generate_keys.
+         The updater stays off while this placeholder is present. -->
+    <key>SUPublicEDKey</key>
+    <string>REPLACE_WITH_SPARKLE_PUBLIC_ED_KEY</string>
+</dict>
+</plist>

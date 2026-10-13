@@ -9,7 +9,8 @@ jobs:
   build-dmg:
     runs-on: macos-15
     permissions:
-      contents: write
+      contents: write   # release upload, appcast commit
+      actions: write    # trigger the Pages deploy after the appcast changes
     env:
       APP_NAME: Focusrite Volume Control
       DMG_PATH: build/FocusriteVolumeControl.dmg
@@ -25,6 +26,10 @@ jobs:
           fi
           sudo xcode-select -s "$XCODE"
           xcodebuild -version
+
+      # Sparkle compares CFBundleVersion, so stamp both version keys from the tag
+      - name: Read version from tag
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
 
       # Signing and notarization run only when every secret below is set. Until then the
       # release is built unsigned, as before, and the Homebrew cask clears quarantine.
@@ -49,6 +54,25 @@ jobs:
           else
             echo "enabled=false" >> "$GITHUB_OUTPUT"
             echo "::warning title=Unsigned release::Building an UNSIGNED, un-notarized DMG. Missing secrets: ${missing[*]}"
+          fi
+
+      # The appcast only advertises signed, notarized builds: Gatekeeper would block an
+      # unsigned app that Sparkle installed.
+      - name: Check Sparkle configuration
+        id: sparkle
+        env:
+          SIGNED: ${{ steps.signing.outputs.enabled }}
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+        run: |
+          PUBLIC_KEY=$(/usr/libexec/PlistBuddy -c "Print :SUPublicEDKey" Focusrite-Volume-Control-Info.plist)
+          if [ "$SIGNED" != "true" ]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Appcast not updated::Unsigned builds are not published to the Sparkle appcast."
+          elif [ -z "$SPARKLE_ED_PRIVATE_KEY" ] || [[ "$PUBLIC_KEY" == REPLACE_* ]]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Appcast not updated::Set the SPARKLE_ED_PRIVATE_KEY secret and SUPublicEDKey in Focusrite-Volume-Control-Info.plist to publish Sparkle updates."
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Import Developer ID certificate
@@ -97,6 +121,7 @@ jobs:
             -scheme "$APP_NAME" -configuration Release \
             -archivePath build/App.xcarchive \
             MACOSX_DEPLOYMENT_TARGET=14.5 \
+            MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$VERSION" \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="$SIGN_IDENTITY" \
@@ -133,6 +158,7 @@ jobs:
           xcodebuild -scheme "$APP_NAME" -configuration Release \
             -derivedDataPath build/DerivedData \
             MACOSX_DEPLOYMENT_TARGET=14.5 \
+            MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$VERSION" \
             CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO \
             build
           echo "APP_PATH=build/DerivedData/Build/Products/Release/$APP_NAME.app" >> "$GITHUB_ENV"
@@ -179,15 +205,46 @@ jobs:
           generate_release_notes: true
           body_path: build/release-notes.md
 
+      - name: Publish Sparkle appcast
+        if: steps.sparkle.outputs.enabled == 'true'
+        env:
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+          GH_TOKEN: ${{ github.token }}
+          SPARKLE_VERSION: 2.10.0   # keep in step with the Sparkle package version in the project
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/sparkle.tar.xz" \
+            "https://github.com/sparkle-project/Sparkle/releases/download/${SPARKLE_VERSION}/Sparkle-${SPARKLE_VERSION}.tar.xz"
+          mkdir -p "$RUNNER_TEMP/sparkle" && tar -xJf "$RUNNER_TEMP/sparkle.tar.xz" -C "$RUNNER_TEMP/sparkle"
+          SIGNATURE=$(printf '%s' "$SPARKLE_ED_PRIVATE_KEY" | "$RUNNER_TEMP/sparkle/bin/sign_update" --ed-key-file - -p "$DMG_PATH")
+          LENGTH=$(stat -f%z "$DMG_PATH")
+          RELEASE_URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/FocusriteVolumeControl.dmg"
+
+          # The tag checkout is detached; commit the appcast on top of main
+          git fetch origin main
+          git checkout -B appcast-update origin/main
+          python3 scripts/update_appcast.py site/appcast.xml \
+            --version "$VERSION" --url "$RELEASE_URL" --length "$LENGTH" --signature "$SIGNATURE" \
+            --minimum-system-version 14.5 \
+            --release-notes-url "https://github.com/${GITHUB_REPOSITORY}/releases/tag/${GITHUB_REF_NAME}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add site/appcast.xml
+          git commit -m "appcast: v${VERSION}"
+          git push origin HEAD:main
+
+          # Pushes made with GITHUB_TOKEN don't trigger workflows, but workflow_dispatch does
+          gh workflow run pages.yml --ref main
+
       - name: Update Homebrew tap
         env:
           GH_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
           DMG_SHA256: ${{ steps.sha.outputs.sha256 }}
           SIGNED: ${{ steps.signing.outputs.enabled }}
+          SPARKLE: ${{ steps.sparkle.outputs.enabled }}
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
           CASK_FLAGS=()
           [ "$SIGNED" = "true" ] || CASK_FLAGS+=(--unsigned)
+          [ "$SPARKLE" = "true" ] && CASK_FLAGS+=(--auto-updates)
           git clone "https://x-access-token:${GH_TOKEN}@github.com/enum-dot-dev/homebrew-focusrite-volume-control.git" tap
           python3 scripts/render_cask.py --version "$VERSION" --sha256 "$DMG_SHA256" ${CASK_FLAGS[@]+"${CASK_FLAGS[@]}"} \
             homebrew/Casks/focusrite-volume-control.rb tap/Casks/focusrite-volume-control.rb

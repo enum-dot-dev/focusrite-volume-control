@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		01A89DA32F2A00000084DBD8 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 01A89DA22F2A00000084DBD8 /* Sparkle */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		01A89D6E2F280BA90084DBD8 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -39,6 +43,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				01A89DA32F2A00000084DBD8 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -90,6 +95,7 @@
 			);
 			name = "Focusrite Volume Control";
 			packageProductDependencies = (
+				01A89DA22F2A00000084DBD8 /* Sparkle */,
 			);
 			productName = "Focusrite Volume Control";
 			productReference = 01A89D572F280BA90084DBD8 /* Focusrite Volume Control.app */;
@@ -146,6 +152,9 @@
 			);
 			mainGroup = 01A89D4E2F280BA90084DBD8;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				01A89DA12F2A00000084DBD8 /* XCRemoteSwiftPackageReference "Sparkle" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 01A89D582F280BA90084DBD8 /* Products */;
 			projectDirPath = "";
@@ -333,6 +342,7 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Focusrite-Volume-Control-Info.plist";
 				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -365,6 +375,7 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Focusrite-Volume-Control-Info.plist";
 				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -457,6 +468,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		01A89DA12F2A00000084DBD8 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = exactVersion;
+				version = 2.10.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		01A89DA22F2A00000084DBD8 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 01A89DA12F2A00000084DBD8 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 01A89D4F2F280BA90084DBD8 /* Project object */;
 }

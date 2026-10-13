@@ -11,6 +11,7 @@
 import Cocoa
 import SwiftUI
 import Combine
+import Sparkle
 
 // Media key codes (from IOKit/hidsystem/ev_keymap.h)
 private let NX_KEYTYPE_SOUND_UP: Int = 0
@@ -47,6 +48,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // Custom hotkey manager for non-media-key shortcuts
     private var hotkeyManager: HotkeyManager!
 
+    // Sparkle updater; nil until a real SUPublicEDKey replaces the placeholder
+    private var updaterController: SPUStandardUpdaterController?
+
     // MARK: - App Lifecycle
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -57,6 +61,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         audioDeviceMonitor = AudioDeviceMonitor()
 
         // Set up menu bar (always visible, even before permissions)
+        setupUpdater()
         setupMenuBar()
         setupStatusMenu()
 
@@ -195,6 +200,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         popover.contentViewController = NSHostingController(rootView: contentView)
     }
 
+    /// Sparkle shows an error at launch if SUPublicEDKey is invalid, so only start it with a real key
+    private func setupUpdater() {
+        let publicKey = Bundle.main.object(forInfoDictionaryKey: "SUPublicEDKey") as? String ?? ""
+        guard !publicKey.isEmpty, !publicKey.hasPrefix("REPLACE_") else { return }
+        updaterController = SPUStandardUpdaterController(startingUpdater: true,
+                                                         updaterDelegate: nil,
+                                                         userDriverDelegate: nil)
+    }
+
     private func setupStatusMenu() {
         statusMenu = NSMenu()
 
@@ -207,6 +221,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let prefsItem = NSMenuItem(title: "Preferences...", action: #selector(showPreferencesMenuItem), keyEquivalent: ",")
         prefsItem.target = self
         statusMenu.addItem(prefsItem)
+
+        // Check for Updates (disabled while the updater isn't configured)
+        let updateItem = NSMenuItem(title: "Check for Updates...",
+                                    action: #selector(SPUStandardUpdaterController.checkForUpdates(_:)),
+                                    keyEquivalent: "")
+        updateItem.target = updaterController
+        statusMenu.addItem(updateItem)
 
         // Report Issue
         let issueItem = NSMenuItem(title: "Report Issue / Request Feature...", action: #selector(openIssues), keyEquivalent: "")
