@@ -28,9 +28,23 @@ jobs:
           sudo xcode-select -s "$XCODE"
           xcodebuild -version
 
-      # Sparkle compares CFBundleVersion, so stamp both version keys from the tag
+      # Sparkle compares CFBundleVersion, so stamp both version keys from the tag.
+      # A hyphen marks a prerelease (v1.6.0-beta.1): a GitHub prerelease for testers,
+      # with no Homebrew tap update and no Sparkle appcast entry.
       - name: Read version from tag
-        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+        id: version
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          # Bundle versions must be dot-separated numbers, so drop the prerelease suffix there
+          BUNDLE_VERSION="${VERSION%%-*}"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "BUNDLE_VERSION=$BUNDLE_VERSION" >> "$GITHUB_ENV"
+          if [[ "$VERSION" == *-* ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Prerelease::$GITHUB_REF_NAME is a prerelease: no Homebrew tap update, no Sparkle appcast entry"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
 
       # Signing and notarization run only when every secret below is set. Until then the
       # release is built unsigned, as before, and the Homebrew cask clears quarantine.
@@ -63,10 +77,14 @@ jobs:
         id: sparkle
         env:
           SIGNED: ${{ steps.signing.outputs.enabled }}
+          PRERELEASE: ${{ steps.version.outputs.prerelease }}
           SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
         run: |
           PUBLIC_KEY=$(/usr/libexec/PlistBuddy -c "Print :SUPublicEDKey" Focusrite-Volume-Control-Info.plist)
-          if [ "$SIGNED" != "true" ]; then
+          if [ "$PRERELEASE" = "true" ]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "Prerelease: not published to the Sparkle appcast"
+          elif [ "$SIGNED" != "true" ]; then
             echo "enabled=false" >> "$GITHUB_OUTPUT"
             echo "::warning title=Appcast not updated::Unsigned builds are not published to the Sparkle appcast."
           elif [ -z "$SPARKLE_ED_PRIVATE_KEY" ] || [[ "$PUBLIC_KEY" == REPLACE_* ]]; then
@@ -122,7 +140,7 @@ jobs:
             -scheme "$SCHEME" -configuration Release \
             -archivePath build/App.xcarchive \
             MACOSX_DEPLOYMENT_TARGET=14.5 \
-            MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$VERSION" \
+            MARKETING_VERSION="$BUNDLE_VERSION" CURRENT_PROJECT_VERSION="$BUNDLE_VERSION" \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="$SIGN_IDENTITY" \
@@ -159,7 +177,7 @@ jobs:
           xcodebuild -scheme "$SCHEME" -configuration Release \
             -derivedDataPath build/DerivedData \
             MACOSX_DEPLOYMENT_TARGET=14.5 \
-            MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$VERSION" \
+            MARKETING_VERSION="$BUNDLE_VERSION" CURRENT_PROJECT_VERSION="$BUNDLE_VERSION" \
             CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO \
             build
           echo "APP_PATH=build/DerivedData/Build/Products/Release/$APP_NAME.app" >> "$GITHUB_ENV"
@@ -183,19 +201,36 @@ jobs:
       - name: Write release notes
         env:
           SIGNED: ${{ steps.signing.outputs.enabled }}
+          PRERELEASE: ${{ steps.version.outputs.prerelease }}
           DMG_SHA256: ${{ steps.sha.outputs.sha256 }}
         run: |
           {
-            echo '**Homebrew:**'
-            echo '```'
-            echo 'brew install --cask enum-dot-dev/focusrite-volume-control/focusrite-volume-control'
-            echo '```'
+            if [ "$PRERELEASE" = "true" ]; then
+              echo '**Test build for hardware testing.** Homebrew and in-app updates do not offer it.'
+              echo
+              echo '1. Download `VolumeControl.dmg` and drag **Volume Control** to Applications.'
+              if [ "$SIGNED" != "true" ]; then
+                echo '2. This build is not signed or notarized. On first launch, right-click the app and choose **Open**, or run:'
+                echo '   `xattr -dr com.apple.quarantine "/Applications/Volume Control.app"`'
+              else
+                echo '2. This build is signed and notarized; open it normally.'
+              fi
+              echo '3. Grant the **Accessibility** permission when prompted (System Settings → Privacy & Security → Accessibility).'
+              echo '4. **Focusrite Control 2** must be installed and running.'
+              echo
+              echo "Please report results in [Issues](https://github.com/${GITHUB_REPOSITORY}/issues) with your interface model and FC2 version."
+            else
+              echo '**Homebrew:**'
+              echo '```'
+              echo 'brew install --cask enum-dot-dev/focusrite-volume-control/focusrite-volume-control'
+              echo '```'
+              if [ "$SIGNED" != "true" ]; then
+                echo
+                echo '> This build is not signed or notarized. On first launch, right-click the app and choose Open.'
+              fi
+            fi
             echo
             echo "**DMG SHA256:** \`$DMG_SHA256\`"
-            if [ "$SIGNED" != "true" ]; then
-              echo
-              echo '> This build is not signed or notarized. On first launch, right-click the app and choose Open.'
-            fi
           } > build/release-notes.md
 
       - name: Create GitHub Release
@@ -204,9 +239,11 @@ jobs:
           files: ${{ env.DMG_PATH }}
           generate_release_notes: true
           body_path: build/release-notes.md
+          prerelease: ${{ steps.version.outputs.prerelease == 'true' }}
+          make_latest: ${{ steps.version.outputs.prerelease == 'true' && 'false' || 'true' }}
 
       - name: Publish Sparkle appcast
-        if: steps.sparkle.outputs.enabled == 'true'
+        if: steps.sparkle.outputs.enabled == 'true' && steps.version.outputs.prerelease != 'true'
         env:
           SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
           GH_TOKEN: ${{ github.token }}
@@ -236,6 +273,7 @@ jobs:
           gh workflow run pages.yml --ref main
 
       - name: Update Homebrew tap
+        if: steps.version.outputs.prerelease != 'true'
         env:
           GH_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
           DMG_SHA256: ${{ steps.sha.outputs.sha256 }}
