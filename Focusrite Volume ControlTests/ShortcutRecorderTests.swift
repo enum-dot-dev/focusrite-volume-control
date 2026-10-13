@@ -12,6 +12,9 @@ import Carbon.HIToolbox
 import class SwiftUI.NSHostingView
 @testable import Focusrite_Volume_Control
 
+// Main-actor like the other test classes: ShortcutManager and HotkeyManager are main-actor
+// types (default isolation), and tearing them down outside the main actor aborts
+@MainActor
 final class ShortcutRecorderTests: XCTestCase {
     func testNativeF12AndLeftArrowAreDistinctAndOnlyF12IsAllowedBare() {
         let left = KeyboardShortcut(keyCode: UInt16(kVK_LeftArrow), modifiers: [])
@@ -61,7 +64,6 @@ final class ShortcutRecorderTests: XCTestCase {
         XCTAssertEqual(manager.shortcut(for: .volumeUp), ShortcutAction.volumeUp.defaultShortcut)
     }
 
-    @MainActor
     func testRecorderCancellationReleasesFocusAndCannotCaptureAnotherKey() {
         let recorder = ShortcutRecorderNSView()
         var captures: [KeyboardShortcut] = []
@@ -81,7 +83,6 @@ final class ShortcutRecorderTests: XCTestCase {
         XCTAssertTrue(captures.isEmpty)
     }
 
-    @MainActor
     func testRecorderCompletesExactlyOnceAndIgnoresInactiveAndRepeatedKeys() {
         let recorder = ShortcutRecorderNSView()
         var captures: [KeyboardShortcut] = []
@@ -97,7 +98,6 @@ final class ShortcutRecorderTests: XCTestCase {
         XCTAssertEqual(captures.map(\.keyCode), [UInt16(kVK_F12)])
     }
 
-    @MainActor
     func testRecorderLosingFocusCancelsRecording() {
         let recorder = ShortcutRecorderNSView()
         var cancellations = 0
@@ -112,7 +112,6 @@ final class ShortcutRecorderTests: XCTestCase {
         XCTAssertEqual(cancellations, 1)
     }
 
-    @MainActor
     func testSwiftUIRecorderBindingCancelsAndCompletesWithoutLaterAssignments() throws {
         let shortcuts = ShortcutManager(preferences: nil)
         let host = NSHostingView(rootView: ShortcutRecorderView(action: .volumeUp, shortcutManager: shortcuts))
@@ -145,7 +144,6 @@ final class ShortcutRecorderTests: XCTestCase {
         XCTAssertEqual(shortcuts.shortcut(for: .volumeUp)?.keyCode, UInt16(kVK_F12))
     }
 
-    @MainActor
     func testHotkeysUpdateImmediatelyPauseForRecordingAndPassOrdinaryArrows() {
         let shortcuts = ShortcutManager(preferences: nil)
         let hotkeys = HotkeyManager(shortcutManager: shortcuts)
