@@ -9,58 +9,284 @@ jobs:
   build-dmg:
     runs-on: macos-15
     permissions:
-      contents: write
+      contents: write   # release upload, appcast commit
+      actions: write    # trigger the Pages deploy after the appcast changes
+    env:
+      SCHEME: Focusrite Volume Control   # Xcode scheme/target name (unchanged)
+      APP_NAME: Volume Control           # built product: "Volume Control.app"
+      DMG_PATH: build/VolumeControl.dmg
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build Release
-        run: >
-          xcodebuild -scheme "Focusrite Volume Control" -configuration Release
-          MACOSX_DEPLOYMENT_TARGET=15.0
-          CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
-          build
+      - name: Select Xcode 26
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          if [ -z "$XCODE" ]; then
+            echo "::error::No Xcode 26 on this runner. The project relies on Xcode 26 build settings (SWIFT_DEFAULT_ACTOR_ISOLATION)."
+            exit 1
+          fi
+          sudo xcode-select -s "$XCODE"
+          xcodebuild -version
+
+      # Sparkle compares CFBundleVersion, so stamp both version keys from the tag.
+      # A hyphen marks a prerelease (v1.6.0-beta.1): a GitHub prerelease for testers,
+      # with no Homebrew tap update and no Sparkle appcast entry.
+      - name: Read version from tag
+        id: version
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          # Bundle versions must be dot-separated numbers, so drop the prerelease suffix there
+          BUNDLE_VERSION="${VERSION%%-*}"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "BUNDLE_VERSION=$BUNDLE_VERSION" >> "$GITHUB_ENV"
+          if [[ "$VERSION" == *-* ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Prerelease::$GITHUB_REF_NAME is a prerelease: no Homebrew tap update, no Sparkle appcast entry"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Signing and notarization run only when every secret below is set. Until then the
+      # release is built unsigned, as before, and the Homebrew cask clears quarantine.
+      - name: Check signing secrets
+        id: signing
+        env:
+          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID || secrets.APPLE_TEAM_ID }}
+          DEVELOPER_ID_CERTIFICATE_P12: ${{ secrets.DEVELOPER_ID_CERTIFICATE_P12 }}
+          DEVELOPER_ID_CERTIFICATE_PASSWORD: ${{ secrets.DEVELOPER_ID_CERTIFICATE_PASSWORD }}
+          APP_STORE_CONNECT_API_KEY_P8: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8 }}
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+        run: |
+          missing=()
+          for name in APPLE_TEAM_ID DEVELOPER_ID_CERTIFICATE_P12 DEVELOPER_ID_CERTIFICATE_PASSWORD \
+                      APP_STORE_CONNECT_API_KEY_P8 APP_STORE_CONNECT_API_KEY_ID APP_STORE_CONNECT_API_ISSUER_ID; do
+            [ -n "${!name}" ] || missing+=("$name")
+          done
+          if [ ${#missing[@]} -eq 0 ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+            echo "Signing and notarization enabled"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Unsigned release::Building an UNSIGNED, un-notarized DMG. Missing secrets: ${missing[*]}"
+          fi
+
+      # The appcast only advertises signed, notarized builds: Gatekeeper would block an
+      # unsigned app that Sparkle installed.
+      - name: Check Sparkle configuration
+        id: sparkle
+        env:
+          SIGNED: ${{ steps.signing.outputs.enabled }}
+          PRERELEASE: ${{ steps.version.outputs.prerelease }}
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+        run: |
+          PUBLIC_KEY=$(/usr/libexec/PlistBuddy -c "Print :SUPublicEDKey" Focusrite-Volume-Control-Info.plist)
+          if [ "$PRERELEASE" = "true" ]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "Prerelease: not published to the Sparkle appcast"
+          elif [ "$SIGNED" != "true" ]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Appcast not updated::Unsigned builds are not published to the Sparkle appcast."
+          elif [ -z "$SPARKLE_ED_PRIVATE_KEY" ] || [[ "$PUBLIC_KEY" == REPLACE_* ]]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Appcast not updated::Set the SPARKLE_ED_PRIVATE_KEY secret and SUPublicEDKey in Focusrite-Volume-Control-Info.plist to publish Sparkle updates."
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Import Developer ID certificate
+        if: steps.signing.outputs.enabled == 'true'
+        env:
+          DEVELOPER_ID_CERTIFICATE_P12: ${{ secrets.DEVELOPER_ID_CERTIFICATE_P12 }}
+          DEVELOPER_ID_CERTIFICATE_PASSWORD: ${{ secrets.DEVELOPER_ID_CERTIFICATE_PASSWORD }}
+          APP_STORE_CONNECT_API_KEY_P8: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8 }}
+        run: |
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          KEYCHAIN_PASSWORD=$(openssl rand -base64 32)
+          echo "::add-mask::$KEYCHAIN_PASSWORD"
+          echo "$DEVELOPER_ID_CERTIFICATE_P12" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 3600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import "$RUNNER_TEMP/certificate.p12" -P "$DEVELOPER_ID_CERTIFICATE_PASSWORD" \
+            -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" > /dev/null
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          rm "$RUNNER_TEMP/certificate.p12"
+
+          IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN" | grep -m1 "Developer ID Application" | sed -E 's/.*"(.*)"/\1/')
+          if [ -z "$IDENTITY" ]; then
+            echo "::error::DEVELOPER_ID_CERTIFICATE_P12 does not contain a Developer ID Application identity"
+            exit 1
+          fi
+          echo "KEYCHAIN=$KEYCHAIN" >> "$GITHUB_ENV"
+          echo "SIGN_IDENTITY=$IDENTITY" >> "$GITHUB_ENV"
+
+          # notarytool accepts the .p8 either raw or base64-encoded in the secret
+          KEY_PATH="$RUNNER_TEMP/AuthKey.p8"
+          if printf '%s' "$APP_STORE_CONNECT_API_KEY_P8" | grep -q "BEGIN PRIVATE KEY"; then
+            printf '%s\n' "$APP_STORE_CONNECT_API_KEY_P8" > "$KEY_PATH"
+          else
+            printf '%s' "$APP_STORE_CONNECT_API_KEY_P8" | base64 --decode > "$KEY_PATH"
+          fi
+          echo "NOTARY_KEY_PATH=$KEY_PATH" >> "$GITHUB_ENV"
+
+      - name: Build signed app (archive + Developer ID export)
+        if: steps.signing.outputs.enabled == 'true'
+        env:
+          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID || secrets.APPLE_TEAM_ID }}
+        run: |
+          xcodebuild archive \
+            -scheme "$SCHEME" -configuration Release \
+            -archivePath build/App.xcarchive \
+            MACOSX_DEPLOYMENT_TARGET=14.5 \
+            MARKETING_VERSION="$BUNDLE_VERSION" CURRENT_PROJECT_VERSION="$BUNDLE_VERSION" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="$SIGN_IDENTITY" \
+            ENABLE_HARDENED_RUNTIME=YES \
+            OTHER_CODE_SIGN_FLAGS="--timestamp --keychain $KEYCHAIN"
+
+          # The team ID isn't committed; add it to a copy of ExportOptions.plist
+          cp ExportOptions.plist build/ExportOptions.plist
+          plutil -replace teamID -string "$APPLE_TEAM_ID" build/ExportOptions.plist
+          xcodebuild -exportArchive \
+            -archivePath build/App.xcarchive \
+            -exportPath build/export \
+            -exportOptionsPlist build/ExportOptions.plist
+
+          APP_PATH="build/export/$APP_NAME.app"
+          codesign --verify --deep --strict --verbose=2 "$APP_PATH"
+          echo "APP_PATH=$APP_PATH" >> "$GITHUB_ENV"
+
+      - name: Notarize and staple app
+        if: steps.signing.outputs.enabled == 'true'
+        env:
+          NOTARY_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          NOTARY_ISSUER: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+        run: |
+          ditto -c -k --keepParent "$APP_PATH" build/app.zip
+          xcrun notarytool submit build/app.zip \
+            --key "$NOTARY_KEY_PATH" --key-id "$NOTARY_KEY_ID" --issuer "$NOTARY_ISSUER" --wait
+          xcrun stapler staple "$APP_PATH"
+          spctl --assess --type execute --verbose=2 "$APP_PATH"
+
+      - name: Build unsigned app
+        if: steps.signing.outputs.enabled != 'true'
+        run: |
+          xcodebuild -scheme "$SCHEME" -configuration Release \
+            -derivedDataPath build/DerivedData \
+            MACOSX_DEPLOYMENT_TARGET=14.5 \
+            MARKETING_VERSION="$BUNDLE_VERSION" CURRENT_PROJECT_VERSION="$BUNDLE_VERSION" \
+            CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO \
+            build
+          echo "APP_PATH=build/DerivedData/Build/Products/Release/$APP_NAME.app" >> "$GITHUB_ENV"
 
       - name: Package DMG
+        env:
+          SIGNED: ${{ steps.signing.outputs.enabled }}
+          NOTARY_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          NOTARY_ISSUER: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
         run: |
-          BUILT_APP=$(find ~/Library/Developer/Xcode/DerivedData/Focusrite_Volume_Control-* \
-            -path "*/Build/Products/Release/Focusrite Volume Control.app" -maxdepth 5 | head -1)
-          mkdir -p build/dmg
-          cp -R "$BUILT_APP" build/dmg/
-          ln -s /Applications build/dmg/Applications
-          hdiutil create \
-            -volname "Focusrite Volume Control" \
-            -srcfolder build/dmg \
-            -ov -format UDZO \
-            build/FocusriteVolumeControl.dmg
+          if [ "$SIGNED" != "true" ]; then
+            # build-dmg.sh signs and notarizes only when these are set
+            unset SIGN_IDENTITY NOTARY_KEY_PATH NOTARY_KEY_ID NOTARY_ISSUER
+          fi
+          bash scripts/build-dmg.sh
 
       - name: Compute DMG SHA256
         id: sha
-        run: echo "sha256=$(shasum -a 256 build/FocusriteVolumeControl.dmg | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+        run: echo "sha256=$(shasum -a 256 "$DMG_PATH" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+
+      - name: Write release notes
+        env:
+          SIGNED: ${{ steps.signing.outputs.enabled }}
+          PRERELEASE: ${{ steps.version.outputs.prerelease }}
+          DMG_SHA256: ${{ steps.sha.outputs.sha256 }}
+        run: |
+          {
+            if [ "$PRERELEASE" = "true" ]; then
+              echo '**Test build for hardware testing.** Homebrew and in-app updates do not offer it.'
+              echo
+              echo '1. Download `VolumeControl.dmg` and drag **Volume Control** to Applications.'
+              if [ "$SIGNED" != "true" ]; then
+                echo '2. This build is not signed or notarized. On first launch, right-click the app and choose **Open**, or run:'
+                echo '   `xattr -dr com.apple.quarantine "/Applications/Volume Control.app"`'
+              else
+                echo '2. This build is signed and notarized; open it normally.'
+              fi
+              echo '3. Grant the **Accessibility** permission when prompted (System Settings → Privacy & Security → Accessibility).'
+              echo '4. **Focusrite Control 2** must be installed and running.'
+              echo
+              echo "Please report results in [Issues](https://github.com/${GITHUB_REPOSITORY}/issues) with your interface model and FC2 version."
+            else
+              echo '**Homebrew:**'
+              echo '```'
+              echo 'brew install --cask enum-dot-dev/focusrite-volume-control/focusrite-volume-control'
+              echo '```'
+              if [ "$SIGNED" != "true" ]; then
+                echo
+                echo '> This build is not signed or notarized. On first launch, right-click the app and choose Open.'
+              fi
+            fi
+            echo
+            echo "**DMG SHA256:** \`$DMG_SHA256\`"
+          } > build/release-notes.md
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: build/FocusriteVolumeControl.dmg
+          files: ${{ env.DMG_PATH }}
           generate_release_notes: true
-          body: |
-            **Homebrew:**
-            ```
-            brew tap enum-labs/focusrite-volume-control
-            brew install --cask focusrite-volume-control
-            ```
+          body_path: build/release-notes.md
+          prerelease: ${{ steps.version.outputs.prerelease == 'true' }}
+          make_latest: ${{ steps.version.outputs.prerelease == 'true' && 'false' || 'true' }}
 
-            **DMG SHA256:** `${{ steps.sha.outputs.sha256 }}`
+      - name: Publish Sparkle appcast
+        if: steps.sparkle.outputs.enabled == 'true' && steps.version.outputs.prerelease != 'true'
+        env:
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+          GH_TOKEN: ${{ github.token }}
+          SPARKLE_VERSION: 2.10.0   # keep in step with the Sparkle package version in the project
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/sparkle.tar.xz" \
+            "https://github.com/sparkle-project/Sparkle/releases/download/${SPARKLE_VERSION}/Sparkle-${SPARKLE_VERSION}.tar.xz"
+          mkdir -p "$RUNNER_TEMP/sparkle" && tar -xJf "$RUNNER_TEMP/sparkle.tar.xz" -C "$RUNNER_TEMP/sparkle"
+          SIGNATURE=$(printf '%s' "$SPARKLE_ED_PRIVATE_KEY" | "$RUNNER_TEMP/sparkle/bin/sign_update" --ed-key-file - -p "$DMG_PATH")
+          LENGTH=$(stat -f%z "$DMG_PATH")
+          RELEASE_URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/VolumeControl.dmg"
+
+          # The tag checkout is detached; commit the appcast on top of main
+          git fetch origin main
+          git checkout -B appcast-update origin/main
+          python3 scripts/update_appcast.py site/appcast.xml \
+            --version "$VERSION" --url "$RELEASE_URL" --length "$LENGTH" --signature "$SIGNATURE" \
+            --minimum-system-version 14.5 \
+            --release-notes-url "https://github.com/${GITHUB_REPOSITORY}/releases/tag/${GITHUB_REF_NAME}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add site/appcast.xml
+          git commit -m "appcast: v${VERSION}"
+          git push origin HEAD:main
+
+          # Pushes made with GITHUB_TOKEN don't trigger workflows, but workflow_dispatch does
+          gh workflow run pages.yml --ref main
 
       - name: Update Homebrew tap
+        if: steps.version.outputs.prerelease != 'true'
         env:
           GH_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
           DMG_SHA256: ${{ steps.sha.outputs.sha256 }}
+          SIGNED: ${{ steps.signing.outputs.enabled }}
+          SPARKLE: ${{ steps.sparkle.outputs.enabled }}
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          git clone https://x-access-token:${GH_TOKEN}@github.com/enum-labs/homebrew-focusrite-volume-control.git tap
+          CASK_FLAGS=()
+          [ "$SIGNED" = "true" ] || CASK_FLAGS+=(--unsigned)
+          [ "$SPARKLE" = "true" ] && CASK_FLAGS+=(--auto-updates)
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/enum-dot-dev/homebrew-focusrite-volume-control.git" tap
+          python3 scripts/render_cask.py --version "$VERSION" --sha256 "$DMG_SHA256" ${CASK_FLAGS[@]+"${CASK_FLAGS[@]}"} \
+            homebrew/Casks/focusrite-volume-control.rb tap/Casks/focusrite-volume-control.rb
           cd tap
-          sed -i '' "s/version \".*\"/version \"${VERSION}\"/" Casks/focusrite-volume-control.rb
-          sed -i '' "s/sha256 \".*\"/sha256 \"${DMG_SHA256}\"/" Casks/focusrite-volume-control.rb
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add Casks/focusrite-volume-control.rb
@@ -68,3 +294,9 @@ jobs:
             git commit -m "bump to v${VERSION}"
             git push
           fi
+
+      - name: Remove signing keychain
+        if: always()
+        run: |
+          [ -n "${KEYCHAIN:-}" ] && security delete-keychain "$KEYCHAIN" || true
+          rm -f "$RUNNER_TEMP/AuthKey.p8"

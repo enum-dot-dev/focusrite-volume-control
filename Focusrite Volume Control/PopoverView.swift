@@ -50,7 +50,7 @@ struct HeaderView: View {
                 .frame(width: 8, height: 8)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text("Focusrite Volume Control")
+                Text("Volume Control")
                     .font(.headline)
 
                 Text(volumeController.statusMessage)

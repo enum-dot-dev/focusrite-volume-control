@@ -92,9 +92,19 @@ final class VolumeBackendTests: XCTestCase {
         XCTAssertEqual(error.errorDescription, "Could not find slider: Playback 1 - 2")
     }
 
-    func testVolumeBackendError_AppleScriptError_Description() {
-        let error = VolumeBackendError.appleScriptError("execution error: System Events got an error")
-        XCTAssertEqual(error.errorDescription, "AppleScript error: execution error: System Events got an error")
+    func testVolumeBackendError_AccessibilityError_Description() {
+        let error = VolumeBackendError.accessibilityError("AXError -25204")
+        XCTAssertEqual(error.errorDescription, "Accessibility error: AXError -25204")
+    }
+
+    func testVolumeBackendError_FC2NotInstalled_Description() {
+        let error = VolumeBackendError.fc2NotInstalled
+        XCTAssertEqual(error.errorDescription, "Focusrite Control 2 is not installed")
+    }
+
+    func testVolumeBackendError_AccessibilityNotGranted_Description() {
+        let error = VolumeBackendError.accessibilityNotGranted
+        XCTAssertEqual(error.errorDescription, "Accessibility permission is not granted")
     }
 
     func testVolumeBackendError_Timeout_Description() {

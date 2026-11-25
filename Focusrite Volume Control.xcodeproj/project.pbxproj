@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		01A89DA32F2A00000084DBD8 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 01A89DA22F2A00000084DBD8 /* Sparkle */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		01A89D6E2F280BA90084DBD8 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -17,7 +21,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		01A89D572F280BA90084DBD8 /* Focusrite Volume Control.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Focusrite Volume Control.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		01A89D572F280BA90084DBD8 /* Volume Control.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Volume Control.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		01A89D652F280BA90084DBD8 /* Focusrite Volume ControlTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Focusrite Volume ControlTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -39,6 +43,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				01A89DA32F2A00000084DBD8 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -64,7 +69,7 @@
 		01A89D582F280BA90084DBD8 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				01A89D572F280BA90084DBD8 /* Focusrite Volume Control.app */,
+				01A89D572F280BA90084DBD8 /* Volume Control.app */,
 				01A89D652F280BA90084DBD8 /* Focusrite Volume ControlTests.xctest */,
 			);
 			name = Products;
@@ -90,9 +95,10 @@
 			);
 			name = "Focusrite Volume Control";
 			packageProductDependencies = (
+				01A89DA22F2A00000084DBD8 /* Sparkle */,
 			);
 			productName = "Focusrite Volume Control";
-			productReference = 01A89D572F280BA90084DBD8 /* Focusrite Volume Control.app */;
+			productReference = 01A89D572F280BA90084DBD8 /* Volume Control.app */;
 			productType = "com.apple.product-type.application";
 		};
 		01A89D6A2F280BA90084DBD8 /* Focusrite Volume ControlTests */ = {
@@ -146,6 +152,9 @@
 			);
 			mainGroup = 01A89D4E2F280BA90084DBD8;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				01A89DA12F2A00000084DBD8 /* XCRemoteSwiftPackageReference "Sparkle" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 01A89D582F280BA90084DBD8 /* Products */;
 			projectDirPath = "";
@@ -254,7 +263,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				MACOSX_DEPLOYMENT_TARGET = 14.5;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -312,7 +321,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				MACOSX_DEPLOYMENT_TARGET = 14.5;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = macosx;
@@ -333,8 +342,9 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Focusrite-Volume-Control-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Volume Control";
 				INFOPLIST_KEY_LSUIElement = YES;
-				INFOPLIST_KEY_NSAppleEventsUsageDescription = "Focusrite Volume Control needs to send Apple events to Focusrite Control 2 to adjust volume and mute settings.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -342,7 +352,8 @@
 				);
 				MARKETING_VERSION = 1.4.5;
 				PRODUCT_BUNDLE_IDENTIFIER = solutions.enum.FocusriteVolumeControl;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_MODULE_NAME = Focusrite_Volume_Control;
+				PRODUCT_NAME = "Volume Control";
 				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -366,8 +377,9 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Focusrite-Volume-Control-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Volume Control";
 				INFOPLIST_KEY_LSUIElement = YES;
-				INFOPLIST_KEY_NSAppleEventsUsageDescription = "Focusrite Volume Control needs to send Apple events to Focusrite Control 2 to adjust volume and mute settings.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -375,7 +387,8 @@
 				);
 				MARKETING_VERSION = 1.4.5;
 				PRODUCT_BUNDLE_IDENTIFIER = solutions.enum.FocusriteVolumeControl;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_MODULE_NAME = Focusrite_Volume_Control;
+				PRODUCT_NAME = "Volume Control";
 				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -394,7 +407,7 @@
 				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = 5FNR593BWG;
 				GENERATE_INFOPLIST_FILE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				MACOSX_DEPLOYMENT_TARGET = 14.5;
 				MARKETING_VERSION = 1.3;
 				PRODUCT_BUNDLE_IDENTIFIER = solutions.enum.FocusriteVolumeControlTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -403,7 +416,7 @@
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Focusrite Volume Control.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Focusrite Volume Control";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Volume Control.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Volume Control";
 			};
 			name = Debug;
 		};
@@ -415,7 +428,7 @@
 				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = 5FNR593BWG;
 				GENERATE_INFOPLIST_FILE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				MACOSX_DEPLOYMENT_TARGET = 14.5;
 				MARKETING_VERSION = 1.3;
 				PRODUCT_BUNDLE_IDENTIFIER = solutions.enum.FocusriteVolumeControlTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -424,7 +437,7 @@
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Focusrite Volume Control.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Focusrite Volume Control";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Volume Control.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Volume Control";
 			};
 			name = Release;
 		};
@@ -459,6 +472,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		01A89DA12F2A00000084DBD8 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = exactVersion;
+				version = 2.10.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		01A89DA22F2A00000084DBD8 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 01A89DA12F2A00000084DBD8 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 01A89D4F2F280BA90084DBD8 /* Project object */;
 }

@@ -16,7 +16,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "01A89D562F280BA90084DBD8"
-               BuildableName = "Focusrite Volume Control.app"
+               BuildableName = "Volume Control.app"
                BlueprintName = "Focusrite Volume Control"
                ReferencedContainer = "container:Focusrite Volume Control.xcodeproj">
             </BuildableReference>
@@ -58,7 +58,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "01A89D562F280BA90084DBD8"
-            BuildableName = "Focusrite Volume Control.app"
+            BuildableName = "Volume Control.app"
             BlueprintName = "Focusrite Volume Control"
             ReferencedContainer = "container:Focusrite Volume Control.xcodeproj">
          </BuildableReference>
@@ -75,7 +75,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "01A89D562F280BA90084DBD8"
-            BuildableName = "Focusrite Volume Control.app"
+            BuildableName = "Volume Control.app"
             BlueprintName = "Focusrite Volume Control"
             ReferencedContainer = "container:Focusrite Volume Control.xcodeproj">
          </BuildableReference>

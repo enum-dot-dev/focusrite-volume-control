@@ -11,6 +11,7 @@
 import Cocoa
 import SwiftUI
 import Combine
+import Sparkle
 
 // Media key codes (from IOKit/hidsystem/ev_keymap.h)
 private let NX_KEYTYPE_SOUND_UP: Int = 0
@@ -30,7 +31,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var preferencesWindow: NSWindow?
     private var onboardingWindow: NSWindow?
 
-    // Volume controller with AppleScript backend
+    // Volume controller with Accessibility backend
     var volumeController: VolumeController!
 
     private var cancellables = Set<AnyCancellable>()
@@ -47,16 +48,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // Custom hotkey manager for non-media-key shortcuts
     private var hotkeyManager: HotkeyManager!
 
+    // Sparkle updater; nil until a real SUPublicEDKey replaces the placeholder
+    private var updaterController: SPUStandardUpdaterController?
+
     // MARK: - App Lifecycle
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Initialize volume controller with AppleScript backend
+        // Initialize volume controller with Accessibility backend
         volumeController = VolumeController()
 
         // Monitor default audio output device for Focusrite detection
         audioDeviceMonitor = AudioDeviceMonitor()
 
         // Set up menu bar (always visible, even before permissions)
+        setupUpdater()
         setupMenuBar()
         setupStatusMenu()
 
@@ -195,11 +200,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         popover.contentViewController = NSHostingController(rootView: contentView)
     }
 
+    /// Sparkle shows an error at launch if SUPublicEDKey is invalid, so only start it with a real key
+    private func setupUpdater() {
+        let publicKey = Bundle.main.object(forInfoDictionaryKey: "SUPublicEDKey") as? String ?? ""
+        guard !publicKey.isEmpty, !publicKey.hasPrefix("REPLACE_") else { return }
+        updaterController = SPUStandardUpdaterController(startingUpdater: true,
+                                                         updaterDelegate: nil,
+                                                         userDriverDelegate: nil)
+    }
+
     private func setupStatusMenu() {
         statusMenu = NSMenu()
 
         // About
-        let aboutItem = NSMenuItem(title: "About Focusrite Volume Control", action: #selector(showAbout), keyEquivalent: "")
+        let aboutItem = NSMenuItem(title: "About Volume Control", action: #selector(showAbout), keyEquivalent: "")
         aboutItem.target = self
         statusMenu.addItem(aboutItem)
 
@@ -207,6 +221,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let prefsItem = NSMenuItem(title: "Preferences...", action: #selector(showPreferencesMenuItem), keyEquivalent: ",")
         prefsItem.target = self
         statusMenu.addItem(prefsItem)
+
+        // Check for Updates (disabled while the updater isn't configured)
+        let updateItem = NSMenuItem(title: "Check for Updates...",
+                                    action: #selector(SPUStandardUpdaterController.checkForUpdates(_:)),
+                                    keyEquivalent: "")
+        updateItem.target = updaterController
+        statusMenu.addItem(updateItem)
 
         // Report Issue
         let issueItem = NSMenuItem(title: "Report Issue / Request Feature...", action: #selector(openIssues), keyEquivalent: "")
@@ -262,7 +283,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func showAbout() {
         let alert = NSAlert()
-        alert.messageText = "Focusrite Volume Control"
+        alert.messageText = "Volume Control"
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
         let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "?"
         alert.informativeText = "Control your Focusrite Scarlett Solo volume with system media keys.\n\nVersion \(version) (\(build))\n\n\u{00A9} 2026"
@@ -339,7 +360,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func openIssues() {
-        if let url = URL(string: "https://github.com/enum-labs/focusrite-volume-control/issues") {
+        if let url = URL(string: "https://github.com/enum-dot-dev/focusrite-volume-control/issues") {
             NSWorkspace.shared.open(url)
         }
     }

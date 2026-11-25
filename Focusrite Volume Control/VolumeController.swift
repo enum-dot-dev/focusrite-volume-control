@@ -3,7 +3,7 @@
 //  Focusrite Volume Control
 //
 //  High-level volume control logic for Focusrite devices.
-//  Uses a pluggable backend (AppleScript now, AES70 API later).
+//  Uses a pluggable backend (Accessibility control of FC2 now, AES70 API later).
 //
 
 import Foundation
@@ -37,14 +37,14 @@ enum VolumeStepSize: String, CaseIterable, Identifiable {
 
 /// Available backend types for volume control
 enum BackendType: String, CaseIterable, Identifiable {
-    case appleScript = "AppleScript"
+    case accessibility = "Accessibility"
     case fcServer = "FC Server"
 
     var id: String { rawValue }
 
     var description: String {
         switch self {
-        case .appleScript:
+        case .accessibility:
             return "Controls via Focusrite Control 2 app"
         case .fcServer:
             return "Direct protocol (not yet implemented)"
@@ -83,7 +83,7 @@ class VolumeController: ObservableObject {
     }
     @Published var ensureDirectMonitorOn: Bool = true  // Auto-enable Direct Monitor before volume changes
     @Published var allowGain: Bool = false  // Allow volume above 0dB (up to +6dB)
-    @Published var backendType: BackendType = .appleScript  // Which backend to use
+    @Published var backendType: BackendType = .accessibility  // Which backend to use
     let minVolume: Double = -127.0  // FC2's actual minimum
 
     /// Maximum volume depends on allowGain setting
@@ -100,18 +100,19 @@ class VolumeController: ObservableObject {
     // Tracks the most recent pending volume to prevent stale backend responses
     // from overwriting optimistic updates during rapid key presses
     private var pendingVolume: Double?
+    private var volumeWriteTask: Task<Void, Never>?
 
     // MARK: - Initialization
 
-    init(backend: VolumeBackend, backendType: BackendType = .appleScript) {
+    init(backend: VolumeBackend, backendType: BackendType = .accessibility) {
         self.backend = backend
         self.backendType = backendType
         setupBindings()
     }
 
-    /// Convenience init with default AppleScript backend
+    /// Convenience init with default Accessibility backend
     convenience init() {
-        self.init(backend: AppleScriptBackend(), backendType: .appleScript)
+        self.init(backend: AccessibilityBackend(), backendType: .accessibility)
     }
 
     private func setupBindings() {
@@ -162,10 +163,15 @@ class VolumeController: ObservableObject {
     }
 
     func disconnect() {
+        volumeWriteTask?.cancel()
+        volumeWriteTask = nil
+        pendingVolume = nil
         backend.disconnect()
     }
 
     func refresh() {
+        // A read started mid-write could report the old value
+        guard pendingVolume == nil else { return }
         Task {
             _ = await backend.refresh()
         }
@@ -189,8 +195,8 @@ class VolumeController: ObservableObject {
 
         // Create new backend
         switch newType {
-        case .appleScript:
-            backend = AppleScriptBackend()
+        case .accessibility:
+            backend = AccessibilityBackend()
         case .fcServer:
             backend = FCServerBackend()
         }
@@ -216,23 +222,23 @@ class VolumeController: ObservableObject {
         playbackMuted = clamped <= minVolume
         pendingVolume = clamped
 
-        DispatchQueue.main.async {
-            Task {
-                await self.ensureDirectMonitorIfNeeded()
-
-                let result = await self.backend.setPlaybackVolume(clamped)
+        // A single writer preserves key-press order. Presses that arrive while FC2
+        // is busy only update pendingVolume, so the next write sends the newest value
+        guard volumeWriteTask == nil else { return }
+        volumeWriteTask = Task { [weak self] in
+            guard let self else { return }
+            while let target = self.pendingVolume, !Task.isCancelled {
+                let result = await self.backend.setPlaybackVolume(
+                    target, ensureDirectMonitor: self.ensureDirectMonitorOn)
                 if case .error(let msg) = result {
                     print("Failed to set playback volume: \(msg)")
                 }
-                await self.minimizeFC2IfNeeded()
-
-                // Clear pending if this was the most recent request
-                await MainActor.run {
-                    if self.pendingVolume == clamped {
-                        self.pendingVolume = nil
-                    }
+                if self.pendingVolume == target {
+                    self.pendingVolume = nil
                 }
             }
+            self.volumeWriteTask = nil
+            await self.minimizeFC2IfNeeded()
         }
     }
 
@@ -241,16 +247,6 @@ class VolumeController: ObservableObject {
         let shouldMinimize = await MainActor.run { keepFC2Minimized }
         if shouldMinimize {
             await backend.minimizeFC2IfNeeded()
-        }
-    }
-
-    /// Ensure Direct Monitor is enabled if the setting is on
-    /// The app requires Direct Monitor to be enabled for volume control to work
-    private func ensureDirectMonitorIfNeeded() async {
-        let shouldEnsure = await MainActor.run { ensureDirectMonitorOn }
-        let isEnabled = await MainActor.run { directMonitorEnabled }
-        if shouldEnsure && !isEnabled {
-            _ = await backend.setDirectMonitorEnabled(true)
         }
     }
 

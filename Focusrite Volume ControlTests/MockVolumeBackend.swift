@@ -3,7 +3,7 @@
 //  Focusrite Volume ControlTests
 //
 //  Mock implementation of VolumeBackend for unit testing.
-//  Allows verifying VolumeController behavior without real AppleScript/FC2.
+//  Allows verifying VolumeController behavior without a real FC2.
 //
 
 import Foundation

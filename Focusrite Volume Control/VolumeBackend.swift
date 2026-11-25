@@ -3,7 +3,7 @@
 //  Focusrite Volume Control
 //
 //  Protocol defining the interface for volume control backends.
-//  This allows swapping between AppleScript UI automation and future AES70 API.
+//  This allows swapping between Accessibility control of FC2 and a future direct protocol.
 //
 
 import Foundation
@@ -51,6 +51,10 @@ protocol VolumeBackend: AnyObject {
     func setPlaybackVolume(_ db: Double) async -> VolumeResult
     func setPlaybackMuted(_ muted: Bool) async -> VolumeResult
 
+    /// Set playback volume, enabling Direct Monitor first when requested.
+    /// Backends can override this to do both in one round trip.
+    func setPlaybackVolume(_ db: Double, ensureDirectMonitor: Bool) async -> VolumeResult
+
     // MARK: - Input 1
 
     func getInput1Volume() async -> Result<Double, Error>
@@ -73,12 +77,23 @@ protocol VolumeBackend: AnyObject {
     func minimizeFC2IfNeeded() async
 }
 
+extension VolumeBackend {
+    func setPlaybackVolume(_ db: Double, ensureDirectMonitor: Bool) async -> VolumeResult {
+        if ensureDirectMonitor && !state.directMonitorEnabled {
+            _ = await setDirectMonitorEnabled(true)
+        }
+        return await setPlaybackVolume(db)
+    }
+}
+
 /// Errors that can occur during volume operations
 enum VolumeBackendError: Error, LocalizedError {
     case fc2NotRunning
     case fc2WindowNotFound
     case sliderNotFound(String)
-    case appleScriptError(String)
+    case fc2NotInstalled
+    case accessibilityNotGranted
+    case accessibilityError(String)
     case timeout
     case notConnected
 
@@ -90,8 +105,12 @@ enum VolumeBackendError: Error, LocalizedError {
             return "Could not find Focusrite Control 2 window"
         case .sliderNotFound(let name):
             return "Could not find slider: \(name)"
-        case .appleScriptError(let msg):
-            return "AppleScript error: \(msg)"
+        case .fc2NotInstalled:
+            return "Focusrite Control 2 is not installed"
+        case .accessibilityNotGranted:
+            return "Accessibility permission is not granted"
+        case .accessibilityError(let msg):
+            return "Accessibility error: \(msg)"
         case .timeout:
             return "Operation timed out"
         case .notConnected:

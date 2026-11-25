@@ -34,7 +34,7 @@ class FCServerBackend: VolumeBackend {
             newState.statusMessage = "FC Server backend not yet implemented"
             stateSubject.send(newState)
         }
-        return .error("FC Server backend is not yet implemented. Please use AppleScript backend.")
+        return .error("FC Server backend is not yet implemented. Please use the Accessibility backend.")
     }
 
     func disconnect() {
