@@ -2,8 +2,10 @@
 """Render a Homebrew cask for a release from homebrew/Casks/focusrite-volume-control.rb.
 
 The release workflow copies the rendered casks into the tap repository, so this repo's
-cask stays the single source of truth. Unsigned builds get a postflight that clears
+cask stays the single source of truth. Unsigned builds get postflight_steps that clear
 the quarantine attribute, since Gatekeeper blocks un-notarized apps downloaded by brew.
+Homebrew deprecated Ruby `postflight` blocks in favour of the structured steps, and
+{{appdir}} in a step argument is expanded by Homebrew at install time.
 
 --beta renders focusrite-volume-control@beta instead. Both casks install the same app,
 so each one conflicts with the other. Only the beta cask accepts prerelease versions
@@ -25,9 +27,8 @@ PRERELEASE_VERSION = STABLE_VERSION + r"(-[0-9A-Za-z]+(\.[0-9A-Za-z]+)*)?"
 
 QUARANTINE_POSTFLIGHT = '''
   # Unsigned build: clear quarantine so Gatekeeper doesn't block the app
-  postflight do
-    system_command "/usr/bin/xattr",
-                   args: ["-cr", "#{appdir}/Volume Control.app"]
+  postflight_steps do
+    run "/usr/bin/xattr", args: ["-cr", "{{appdir}}/Volume Control.app"]
   end
 '''
 
@@ -64,7 +65,7 @@ def main() -> int:
     parser.add_argument("--version", required=True)
     parser.add_argument("--sha256", required=True)
     parser.add_argument("--beta", action="store_true", help=f"render {BETA_TOKEN} instead of {STABLE_TOKEN}")
-    parser.add_argument("--unsigned", action="store_true", help="add the quarantine-clearing postflight")
+    parser.add_argument("--unsigned", action="store_true", help="add quarantine-clearing postflight_steps")
     parser.add_argument("--auto-updates", action="store_true", help="the app updates itself (Sparkle)")
     parser.add_argument("source")
     parser.add_argument("dest")

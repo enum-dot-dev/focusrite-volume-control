@@ -24,7 +24,7 @@ class RenderCaskTests(unittest.TestCase):
         self.assertIn('  version "1.6.0"', cask)
         self.assertIn(f'  sha256 "{SHA}"', cask)
         self.assertIn(f'  conflicts_with cask: "{BETA_TOKEN}"', cask)
-        self.assertNotIn("postflight do", cask)
+        self.assertNotIn("postflight_steps do", cask)
         self.assertNotIn("auto_updates", cask)
 
     def test_beta_swaps_token_and_conflict(self):
@@ -49,10 +49,22 @@ class RenderCaskTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             render(template(), "1.6.0", "not-a-sha", unsigned=False, auto_updates=False)
 
-    def test_unsigned_adds_quarantine_postflight_after_app(self):
+    def test_unsigned_adds_quarantine_postflight_steps_after_app(self):
         cask = render(template(), "1.6.0", SHA, unsigned=True, auto_updates=False)
         self.assertIn('  app "Volume Control.app"\n\n  # Unsigned build', cask)
-        self.assertIn('"/usr/bin/xattr"', cask)
+        self.assertIn('  postflight_steps do\n'
+                      '    run "/usr/bin/xattr", args: ["-cr", "{{appdir}}/Volume Control.app"]\n'
+                      '  end', cask)
+
+    def test_no_deprecated_cask_syntax(self):
+        # Homebrew warns on both: string comparisons in depends_on macos, and Ruby flight blocks
+        for beta in (False, True):
+            for unsigned in (False, True):
+                cask = render(template(), "1.6.0", SHA, unsigned=unsigned, auto_updates=True, beta=beta)
+                self.assertIn("  depends_on macos: :sonoma\n", cask)
+                self.assertNotRegex(cask, r'depends_on macos: "')
+                self.assertNotRegex(cask, r"(?m)^\s*(pre|post)flight do")
+                self.assertNotIn("system_command", cask)
 
     def test_auto_updates_goes_before_conflicts_with(self):
         for beta in (False, True):

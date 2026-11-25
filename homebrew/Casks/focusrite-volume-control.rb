@@ -1,5 +1,5 @@
 # Template: the release workflow renders this with scripts/render_cask.py (version, sha256,
-# and a quarantine postflight for unsigned builds) and pushes it to the tap repository.
+# and quarantine-clearing postflight_steps for unsigned builds) and pushes it to the tap repository.
 # The same template also renders focusrite-volume-control@beta (render_cask.py --beta).
 cask "focusrite-volume-control" do
   version "1.5.1"
@@ -11,7 +11,7 @@ cask "focusrite-volume-control" do
   homepage "https://enum.dev/focusrite-volume-control/"
 
   conflicts_with cask: "focusrite-volume-control@beta"
-  depends_on macos: ">= :sonoma"
+  depends_on macos: :sonoma
 
   app "Volume Control.app"
 
