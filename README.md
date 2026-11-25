@@ -22,6 +22,12 @@ brew install --cask enum-dot-dev/focusrite-volume-control/focusrite-volume-contr
 
 Homebrew 6.0 and later only load casks from third-party taps you've trusted. Installing by the full name, as above, adds the tap and trusts just this cask. If you'd rather tap first and install by the short name, run `brew trust --cask enum-dot-dev/focusrite-volume-control/focusrite-volume-control` before `brew install --cask focusrite-volume-control`.
 
+Want test builds before they ship? Install the beta cask instead. It also gets every stable release, so you can stay on it. Uninstall the regular cask first, since both install the same app.
+
+```bash
+brew install --cask enum-dot-dev/focusrite-volume-control/focusrite-volume-control@beta
+```
+
 ### Manual
 
 Download the latest DMG from [Releases](https://github.com/enum-dot-dev/focusrite-volume-control/releases/latest) and drag to Applications.

@@ -29,19 +29,24 @@ jobs:
           xcodebuild -version
 
       # Sparkle compares CFBundleVersion, so stamp both version keys from the tag.
-      # A hyphen marks a prerelease (v1.6.0-beta.1): a GitHub prerelease for testers,
-      # with no Homebrew tap update and no Sparkle appcast entry.
+      # A hyphen marks a beta (v1.6.0-beta.2): a GitHub prerelease that updates only the
+      # focusrite-volume-control@beta cask and skips the Sparkle appcast.
       - name: Read version from tag
         id: version
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
+          # Fail here rather than after the GitHub release exists
+          if ! [[ "$VERSION" =~ ^[0-9]+(\.[0-9]+)*(-[0-9A-Za-z]+(\.[0-9A-Za-z]+)*)?$ ]]; then
+            echo "::error::Tag $GITHUB_REF_NAME isn't vX.Y.Z or vX.Y.Z-beta.N"
+            exit 1
+          fi
           # Bundle versions must be dot-separated numbers, so drop the prerelease suffix there
           BUNDLE_VERSION="${VERSION%%-*}"
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           echo "BUNDLE_VERSION=$BUNDLE_VERSION" >> "$GITHUB_ENV"
           if [[ "$VERSION" == *-* ]]; then
             echo "prerelease=true" >> "$GITHUB_OUTPUT"
-            echo "::notice title=Prerelease::$GITHUB_REF_NAME is a prerelease: no Homebrew tap update, no Sparkle appcast entry"
+            echo "::notice title=Beta::$GITHUB_REF_NAME is a beta: GitHub prerelease, @beta cask only, no Sparkle appcast entry"
           else
             echo "prerelease=false" >> "$GITHUB_OUTPUT"
           fi
@@ -203,31 +208,44 @@ jobs:
           SIGNED: ${{ steps.signing.outputs.enabled }}
           PRERELEASE: ${{ steps.version.outputs.prerelease }}
           DMG_SHA256: ${{ steps.sha.outputs.sha256 }}
+        # Every release page offers both Homebrew and the DMG; betas point at the @beta cask
         run: |
+          if [ "$PRERELEASE" = "true" ]; then
+            CASK="focusrite-volume-control@beta"
+          else
+            CASK="focusrite-volume-control"
+          fi
           {
             if [ "$PRERELEASE" = "true" ]; then
-              echo '**Test build for hardware testing.** Homebrew and in-app updates do not offer it.'
+              echo "**Beta.** A test build ahead of the next stable release. Regular Homebrew installs and in-app updates stay on the current stable version."
               echo
-              echo '1. Download `VolumeControl.dmg` and drag **Volume Control** to Applications.'
-              if [ "$SIGNED" != "true" ]; then
-                echo '2. This build is not signed or notarized. On first launch, right-click the app and choose **Open**, or run:'
-                echo '   `xattr -dr com.apple.quarantine "/Applications/Volume Control.app"`'
-              else
-                echo '2. This build is signed and notarized; open it normally.'
-              fi
-              echo '3. Grant the **Accessibility** permission when prompted (System Settings → Privacy & Security → Accessibility).'
-              echo '4. **Focusrite Control 2** must be installed and running.'
-              echo
-              echo "Please report results in [Issues](https://github.com/${GITHUB_REPOSITORY}/issues) with your interface model and FC2 version."
+            fi
+            echo '## Install'
+            echo
+            echo '**Homebrew**'
+            echo
+            echo '```bash'
+            echo "brew install --cask enum-dot-dev/focusrite-volume-control/$CASK"
+            echo '```'
+            echo
+            if [ "$PRERELEASE" = "true" ]; then
+              echo 'On the regular cask? Run `brew uninstall --cask focusrite-volume-control` first, since both install the same app. The beta cask also gets every stable release, so you can stay on it.'
             else
-              echo '**Homebrew:**'
-              echo '```'
-              echo 'brew install --cask enum-dot-dev/focusrite-volume-control/focusrite-volume-control'
-              echo '```'
-              if [ "$SIGNED" != "true" ]; then
-                echo
-                echo '> This build is not signed or notarized. On first launch, right-click the app and choose Open.'
-              fi
+              echo "Already installed? Run \`brew upgrade --cask $CASK\`."
+            fi
+            echo
+            echo '**DMG**'
+            echo
+            echo '1. Download `VolumeControl.dmg` below.'
+            echo '2. Open it and drag **Volume Control** to Applications.'
+            if [ "$SIGNED" != "true" ]; then
+              echo "3. This build isn't signed yet, so macOS blocks the first launch. Right-click the app and choose **Open**. Homebrew installs skip this step."
+            fi
+            echo
+            echo 'Needs [Focusrite Control 2](https://focusrite.com/downloads). Grant the **Accessibility** permission when the app asks on first launch.'
+            if [ "$PRERELEASE" = "true" ]; then
+              echo
+              echo "Found a problem? [Open an issue](https://github.com/${GITHUB_REPOSITORY}/issues) with your interface model and FC2 version."
             fi
             echo
             echo "**DMG SHA256:** \`$DMG_SHA256\`"
@@ -272,24 +290,31 @@ jobs:
           # Pushes made with GITHUB_TOKEN don't trigger workflows, but workflow_dispatch does
           gh workflow run pages.yml --ref main
 
+      # Every release updates focusrite-volume-control@beta, so beta testers also move on to
+      # stable releases. Only stable releases update the regular cask.
       - name: Update Homebrew tap
-        if: steps.version.outputs.prerelease != 'true'
         env:
           GH_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
           DMG_SHA256: ${{ steps.sha.outputs.sha256 }}
           SIGNED: ${{ steps.signing.outputs.enabled }}
           SPARKLE: ${{ steps.sparkle.outputs.enabled }}
+          PRERELEASE: ${{ steps.version.outputs.prerelease }}
         run: |
           CASK_FLAGS=()
           [ "$SIGNED" = "true" ] || CASK_FLAGS+=(--unsigned)
           [ "$SPARKLE" = "true" ] && CASK_FLAGS+=(--auto-updates)
           git clone "https://x-access-token:${GH_TOKEN}@github.com/enum-dot-dev/homebrew-focusrite-volume-control.git" tap
-          python3 scripts/render_cask.py --version "$VERSION" --sha256 "$DMG_SHA256" ${CASK_FLAGS[@]+"${CASK_FLAGS[@]}"} \
-            homebrew/Casks/focusrite-volume-control.rb tap/Casks/focusrite-volume-control.rb
+          SRC=homebrew/Casks/focusrite-volume-control.rb
+          python3 scripts/render_cask.py --version "$VERSION" --sha256 "$DMG_SHA256" --beta \
+            ${CASK_FLAGS[@]+"${CASK_FLAGS[@]}"} "$SRC" "tap/Casks/focusrite-volume-control@beta.rb"
+          if [ "$PRERELEASE" != "true" ]; then
+            python3 scripts/render_cask.py --version "$VERSION" --sha256 "$DMG_SHA256" \
+              ${CASK_FLAGS[@]+"${CASK_FLAGS[@]}"} "$SRC" "tap/Casks/focusrite-volume-control.rb"
+          fi
           cd tap
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add Casks/focusrite-volume-control.rb
+          git add Casks/
           if ! git diff --cached --quiet; then
             git commit -m "bump to v${VERSION}"
             git push
