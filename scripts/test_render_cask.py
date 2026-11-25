@@ -25,6 +25,7 @@ class RenderCaskTests(unittest.TestCase):
         self.assertIn(f'  sha256 "{SHA}"', cask)
         self.assertIn(f'  conflicts_with cask: "{BETA_TOKEN}"', cask)
         self.assertNotIn("postflight do", cask)
+        self.assertNotIn("postflight_steps", cask)
         self.assertNotIn("auto_updates", cask)
 
     def test_beta_swaps_token_and_conflict(self):
@@ -53,6 +54,11 @@ class RenderCaskTests(unittest.TestCase):
         cask = render(template(), "1.6.0", SHA, unsigned=True, auto_updates=False)
         self.assertIn('  app "Volume Control.app"\n\n  # Unsigned build', cask)
         self.assertIn('"/usr/bin/xattr"', cask)
+        # Homebrew deprecated Ruby flight blocks; the steps DSL takes {{...}} tokens, not #{...}
+        self.assertIn("  postflight_steps do\n", cask)
+        self.assertNotIn("postflight do", cask)
+        self.assertNotIn("system_command", cask)
+        self.assertIn('"{{appdir}}/Volume Control.app"', cask)
 
     def test_auto_updates_goes_before_conflicts_with(self):
         for beta in (False, True):

@@ -2,8 +2,10 @@
 """Render a Homebrew cask for a release from homebrew/Casks/focusrite-volume-control.rb.
 
 The release workflow copies the rendered casks into the tap repository, so this repo's
-cask stays the single source of truth. Unsigned builds get a postflight that clears
-the quarantine attribute, since Gatekeeper blocks un-notarized apps downloaded by brew.
+cask stays the single source of truth. Unsigned builds get a postflight_steps stanza that
+clears the quarantine attribute, since Gatekeeper blocks un-notarized apps downloaded by
+brew. Homebrew deprecated Ruby flight blocks (`postflight do ... system_command ...`), so
+the stanza uses the declarative steps DSL with an install-time {{appdir}} token.
 
 --beta renders focusrite-volume-control@beta instead. Both casks install the same app,
 so each one conflicts with the other. Only the beta cask accepts prerelease versions
@@ -25,9 +27,9 @@ PRERELEASE_VERSION = STABLE_VERSION + r"(-[0-9A-Za-z]+(\.[0-9A-Za-z]+)*)?"
 
 QUARANTINE_POSTFLIGHT = '''
   # Unsigned build: clear quarantine so Gatekeeper doesn't block the app
-  postflight do
-    system_command "/usr/bin/xattr",
-                   args: ["-cr", "#{appdir}/Volume Control.app"]
+  postflight_steps do
+    run "/usr/bin/xattr",
+        args: ["-cr", "{{appdir}}/Volume Control.app"]
   end
 '''
 
