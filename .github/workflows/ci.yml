@@ -30,6 +30,10 @@ jobs:
           sudo xcode-select -s "$XCODE"
           xcodebuild -version
 
+      # The release workflow renders the Homebrew casks with this script
+      - name: Test release scripts
+        run: python3 -m unittest discover -s scripts -p 'test_*.py' -v
+
       - name: Build
         run: >
           xcodebuild -scheme "Focusrite Volume Control" -configuration Debug
