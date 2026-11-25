@@ -7,11 +7,11 @@ cask "focusrite-volume-control" do
 
   url "https://github.com/enum-dot-dev/focusrite-volume-control/releases/download/v#{version}/VolumeControl.dmg"
   name "Volume Control"
-  desc "Control Focusrite Scarlett 4th gen volume with media keys via Focusrite Control 2"
+  desc "Control Scarlett 4th gen volume with media keys via Focusrite Control 2"
   homepage "https://enum.dev/focusrite-volume-control/"
 
   conflicts_with cask: "focusrite-volume-control@beta"
-  depends_on macos: ">= :sonoma"
+  depends_on macos: :sonoma
 
   app "Volume Control.app"
 
